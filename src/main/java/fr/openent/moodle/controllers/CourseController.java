@@ -226,18 +226,18 @@ public class CourseController extends ControllerHelper {
                             summary = summary.substring(0, summary.length() - 4);
                         course.put("summary",summary);
                         course.put("duplication", "non");
-                        if (sqlCourseId.contains(course.getValue("courseid", "").toString())) {
-                            int courseIndex = sqlCourseId.indexOf(course.getValue("courseid", "").toString());
+                        if (sqlCourseId.contains(course.getValue("courseid").toString())) {
+                            int courseIndex = sqlCourseId.indexOf(course.getValue("courseid").toString());
                             JsonObject SQLCourse = sqlCourses.getJsonObject(courseIndex);
                             String idFolder = SQLCourse.getValue("folder_id").toString();
                             course.put("folderId", Integer.parseInt(idFolder));
-                            if(!isNull(SQLCourse.getString("fullname"))){
-                                course.put("levels", SQLCourse.getJsonArray("levels"));
-                                course.put("disciplines", SQLCourse.getJsonArray("disciplines"));
-                                course.put("plain_text", SQLCourse.getJsonArray("plain_text"));
-                                if(!SQLCourse.getString("fullname").equals(course.getString("fullname", "")) ||
-                                        !SQLCourse.getString("imageurl").equals(course.getString("imageurl", "")) ||
-                                        !SQLCourse.getString("summary").equals(course.getString("summary", "")) ){
+                            if(!isNull(SQLCourse.getString("fullname", ""))){
+                                course.put("levels", SQLCourse.getJsonArray("levels", new JsonArray()));
+                                course.put("disciplines", SQLCourse.getJsonArray("disciplines", new JsonArray()));
+                                course.put("plain_text", SQLCourse.getJsonArray("plain_text", new JsonArray()));
+                                if(!SQLCourse.getString("fullname", "").equals(course.getString("fullname", "")) ||
+                                        !SQLCourse.getString("imageurl", "").equals(course.getString("imageurl", "")) ||
+                                        !SQLCourse.getString("summary", "").equals(course.getString("summary", "")) ){
                                     callMediacentreEventBusToUpdate(course, moodleEventBus, ebEvent -> {
                                         if (ebEvent.isRight()) {
                                             moduleSQLRequestService.updatePublicCourse(course, event -> {
