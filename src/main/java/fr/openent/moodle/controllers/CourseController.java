@@ -231,7 +231,7 @@ public class CourseController extends ControllerHelper {
                             JsonObject SQLCourse = sqlCourses.getJsonObject(courseIndex);
                             String idFolder = SQLCourse.getValue("folder_id").toString();
                             course.put("folderId", Integer.parseInt(idFolder));
-                            if(!isNull(SQLCourse.getString("fullname", ""))){
+                            if(!isNull(SQLCourse.getString("fullname"))){
                                 course.put("levels", SQLCourse.getJsonArray("levels", new JsonArray()));
                                 course.put("disciplines", SQLCourse.getJsonArray("disciplines", new JsonArray()));
                                 course.put("plain_text", SQLCourse.getJsonArray("plain_text", new JsonArray()));
