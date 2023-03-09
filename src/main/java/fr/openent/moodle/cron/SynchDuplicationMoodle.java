@@ -89,21 +89,30 @@ public class SynchDuplicationMoodle extends ControllerHelper implements Handler<
                                                         "&parameters[auditeurid]=" + "" +
                                                         "&parameters[course][0][categoryid]=" + courseToDuplicate.getInteger("category_id");
                                             }
-                                            try {
-                                                HttpClientHelper.webServiceMoodlePost(null, moodleUrl, vertx, moodleClient, postEvent -> {
-                                                    if (postEvent.isRight()) {
-                                                        log.info("Duplication request sent to Moodle");
-                                                        eitherHandler.handle(new Either.Right<>(postEvent.right().getValue().toJsonArray()
-                                                                .getJsonObject(0).getJsonArray("courses").getJsonObject(0)));
-                                                    } else {
-                                                        log.error("Failed to contact Moodle");
-                                                        eitherHandler.handle(new Either.Left<>("Failed to contact Moodle"));
+                                            moduleSQLRequestService.updateStatusCourseToDuplicate(WAITING,
+                                                        courseToDuplicate.getInteger("id"),
+                                                        courseToDuplicate.getInteger("attemptsNumber"), updateEvent -> {
+                                                if (updateEvent.isRight()) {
+                                                    try {
+                                                        HttpClientHelper.webServiceMoodlePost(null, moodleUrl, vertx, moodleClient, postEvent -> {
+                                                            if (postEvent.isRight()) {
+                                                                log.info("Duplication request sent to Moodle");
+                                                                eitherHandler.handle(new Either.Right<>(postEvent.right().getValue().toJsonArray()
+                                                                        .getJsonObject(0).getJsonArray("courses").getJsonObject(0)));
+                                                            } else {
+                                                                log.error("Failed to contact Moodle");
+                                                                eitherHandler.handle(new Either.Left<>("Failed to contact Moodle"));
+                                                            }
+                                                        });
+                                                    } catch (UnsupportedEncodingException e) {
+                                                        log.error("Fail to encode JSON",e);
+                                                        eitherHandler.handle(new Either.Left<>("failed to create webServiceMoodlePost"));
                                                     }
-                                                });
-                                            } catch (UnsupportedEncodingException e) {
-                                                log.error("Fail to encode JSON",e);
-                                                eitherHandler.handle(new Either.Left<>("failed to create webServiceMoodlePost"));
-                                            }
+                                                } else {
+                                                    log.error("Failed to update database updateStatusCourseToDuplicate");
+                                                    eitherHandler.handle(new Either.Left<>("Failed to update database updateStatusCourseToDuplicate"));
+                                                }
+                                            });
                                         }
                                     } else {
                                         eitherHandler.handle(new Either.Left<>("There are no course to duplicate in the duplication table"));

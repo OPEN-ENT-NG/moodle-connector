@@ -187,7 +187,7 @@ public class DuplicateController extends ControllerHelper {
                             log.info("A duplication is already in progress");
                             break;
                         case "error":
-                            errorResponse(request, duplicateResponse);
+                            errorResponse(request);
                             break;
                         default:
                             log.error("Failed to read the Moodle response");
@@ -197,28 +197,11 @@ public class DuplicateController extends ControllerHelper {
         );
     }
 
-    private void errorResponse(HttpServerRequest request, JsonObject duplicateResponse) {
-        moduleSQLRequestService.getCourseToDuplicate(Integer.parseInt(duplicateResponse.getString("ident")), duplicateEvent -> {
-            if (duplicateEvent.isRight()) {
-                Integer nbAttempts = duplicateEvent.right().getValue().getInteger("nombre_tentatives");
-                final String status = WAITING;
-                Integer id = duplicateResponse.getInteger("ident");
-                moduleSQLRequestService.updateStatusCourseToDuplicate(status, id, nbAttempts, updateEvent -> {
-                    if (updateEvent.isRight()) {
-                        request.response()
-                                .setStatusCode(200)
-                                .end();
-                        log.error("Duplication web-service failed");
-                    } else {
-                        log.error("Failed to update database updateStatusCourseToDuplicate");
-                        unauthorized(request);
-                    }
-                });
-            } else {
-                log.error("Failed to access database getCourseToDuplicate");
-                unauthorized(request);
-            }
-        });
+    private void errorResponse(HttpServerRequest request) {
+        request.response()
+                .setStatusCode(200)
+                .end();
+        log.error("Duplication web-service failed");
     }
 
     private void finishedResponse(HttpServerRequest request, JsonObject duplicateResponse) {
