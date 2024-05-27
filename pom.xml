@@ -23,11 +23,11 @@
         </repository>
     </repositories>
     <properties>
-        <vertxVersion>3.9.5</vertxVersion>
+        <vertxVersion>4.5.5</vertxVersion>
         <toolsVersion>2.0.0-final</toolsVersion>
         <junitVersion>5.1.0</junitVersion>
         <vertxCronTimer>2.0.0</vertxCronTimer>
-        <entCoreVersion>4.10.2</entCoreVersion>
+        <entCoreVersion>5.0-b2school-SNAPSHOT</entCoreVersion>
         <gatlingHighchartsVersion>2.2.2</gatlingHighchartsVersion>
     </properties>
     <dependencies>

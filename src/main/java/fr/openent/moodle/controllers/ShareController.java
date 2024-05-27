@@ -17,17 +17,11 @@ import fr.wseduc.webutils.Either;
 import fr.wseduc.webutils.I18n;
 import fr.wseduc.webutils.http.Renders;
 import fr.wseduc.webutils.request.RequestUtils;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
@@ -82,15 +76,15 @@ public class ShareController extends ControllerHelper {
         final Handler<Either<String, JsonObject>> handler = defaultResponseHandler(request);
         UserUtils.getUserInfos(eb, request, user -> {
             if (user != null) {
-                Future<JsonObject> getShareJsonInfosFuture = Future.future();
-                Future<JsonArray> getUsersEnrolmentsFuture = Future.future();
+                Promise<JsonObject> getShareJsonInfosPromise = Promise.promise();
+                Promise<JsonArray> getUsersEnrolmentsPromise = Promise.promise();
 
-                getShareJsonInfos(request, user, getShareJsonInfosFuture);
-                getUsersEnrolmentsFromMoodle(request, getUsersEnrolmentsFuture);
+                getShareJsonInfos(request, user, getShareJsonInfosPromise);
+                getUsersEnrolmentsFromMoodle(request, getUsersEnrolmentsPromise);
 
-                CompositeFuture.all(getShareJsonInfosFuture, getUsersEnrolmentsFuture).setHandler(event -> {
+                Future.all(getShareJsonInfosPromise.future(), getUsersEnrolmentsPromise.future()).onComplete(event -> {
                     if (event.succeeded()) {
-                        generateShareJson(request, handler, user, getShareJsonInfosFuture.result(), getUsersEnrolmentsFuture.result());
+                        generateShareJson(request, handler, user, getShareJsonInfosPromise.future().result(), getUsersEnrolmentsPromise.future().result());
                     } else {
                         badRequest(request, event.cause().getMessage());
                     }
@@ -107,15 +101,15 @@ public class ShareController extends ControllerHelper {
      *
      * @param request Http request
      * @param user    User infos
-     * @param future  Future to get the shareJson model
+     * @param promise  Promise to get the shareJson model
      */
-    private void getShareJsonInfos(HttpServerRequest request, UserInfos user, Future<JsonObject> future) {
+    private void getShareJsonInfos(HttpServerRequest request, UserInfos user, Promise<JsonObject> promise) {
         shareService.shareInfos(user.getUserId(), request.getParam("id"), I18n.acceptLanguage(request),
                 request.params().get("search"), event -> {
             if (event.isRight()) {
-                future.complete(event.right().getValue());
+                promise.complete(event.right().getValue());
             } else {
-                future.fail("Share infos not found");
+                promise.fail("Share infos not found");
             }
         });
     }
@@ -124,9 +118,9 @@ public class ShareController extends ControllerHelper {
      * Get the Moodle users with the Web-Service from Moodle
      *
      * @param request Http request
-     * @param future  Future to get the Moodle users
+     * @param promise Promise to get the Moodle users
      */
-    private void getUsersEnrolmentsFromMoodle(HttpServerRequest request, Future<JsonArray> future) {
+    private void getUsersEnrolmentsFromMoodle(HttpServerRequest request, Promise<JsonArray> promise) {
         JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
         final HttpClient httpClient = HttpClientHelper.createHttpClient(vertx, moodleClient);
         final AtomicBoolean responseIsSent = new AtomicBoolean(false);
@@ -136,39 +130,41 @@ public class ShareController extends ControllerHelper {
                 "&wsfunction=" + WS_GET_SHARECOURSE +
                 "&parameters[courseid]=" + request.getParam("id") +
                 "&moodlewsrestformat=" + JSON;
-        Handler<HttpClientResponse> getUsersEnrolmentsHandler = response -> {
-            if (response.statusCode() == 200) {
-                response.handler(wsResponse::appendBuffer);
-                response.endHandler(end -> {
-                    JsonArray finalGroups = new JsonArray(wsResponse);
-                    future.complete(finalGroups);
-                    if (!responseIsSent.getAndSet(true)) {
-                        httpClient.close();
-                    }
-                });
-            } else {
-                log.error("Fail to call get share course right webservice" + response.statusMessage());
-                response.bodyHandler(event -> {
-                    log.error("Returning body after GET CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
-                    future.fail(response.statusMessage());
-                    if (!responseIsSent.getAndSet(true)) {
-                        httpClient.close();
-                    }
-                });
-            }
-        };
+        RequestOptions requestOptions = new RequestOptions()
+                .setAbsoluteURI(moodleUrl)
+                .setMethod(HttpMethod.GET)
+                .addHeader("Content-Length", "0");
 
-        final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl, getUsersEnrolmentsHandler);
-        httpClientRequest.headers().set("Content-Length", "0");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(event -> {
-            log.error(event.getMessage(), event);
-            future.fail(event.getMessage());
-            if (!responseIsSent.getAndSet(true)) {
-                renderError(request);
-                httpClient.close();
-            }
-        }).end();
+        httpClient.request(requestOptions)
+                .flatMap(HttpClientRequest::send)
+                .onSuccess(response -> {
+                    if (response.statusCode() == 200) {
+                        response.handler(wsResponse::appendBuffer);
+                        response.endHandler(end -> {
+                            JsonArray finalGroups = new JsonArray(wsResponse);
+                            promise.complete(finalGroups);
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    } else {
+                        log.error("Fail to call get share course right webservice" + response.statusMessage());
+                        response.bodyHandler(event -> {
+                            log.error("Returning body after GET CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
+                            promise.fail(response.statusMessage());
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    }
+                })
+                .onFailure(event -> {
+                    log.error(event.getMessage(), event);
+                    promise.fail(event.getMessage());
+                    if (!responseIsSent.getAndSet(true)) {
+                        httpClient.close();
+                    }
+                });
     }
 
     /**
@@ -278,27 +274,27 @@ public class ShareController extends ControllerHelper {
                         }
                     });
 
-                    Future<JsonArray> getUsersFuture = Future.future();
-                    Future<JsonArray> getUsersInGroupsFuture = Future.future();
-                    Future<JsonArray> getBookmarksFuture = Future.future();
+                    Promise<JsonArray> getUsersPromise = Promise.promise();
+                    Promise<JsonArray> getUsersInGroupsPromise = Promise.promise();
+                    Promise<JsonArray> getBookmarksPromise = Promise.promise();
 
                     usersIds.add(user.getUserId());
-                    postShareProcessingService.getUsersFuture(usersIds, getUsersFuture);
-                    postShareProcessingService.getUsersInGroupsFuture(groupsIds, getUsersInGroupsFuture);
-                    postShareProcessingService.getUsersInBookmarksFuture(bookmarksIds, getBookmarksFuture);
+                    postShareProcessingService.getUsersPromise(usersIds, getUsersPromise);
+                    postShareProcessingService.getUsersInGroupsPromise(groupsIds, getUsersInGroupsPromise);
+                    postShareProcessingService.getUsersInBookmarksPromise(bookmarksIds, getBookmarksPromise);
 
-                    Future<JsonArray> getTheAuditeurIdFuture = Future.future();
-                    getUsersEnrolmentsFromMoodle(request, getTheAuditeurIdFuture);
+                    Promise<JsonArray> getTheAuditeurIdPromise = Promise.promise();
+                    getUsersEnrolmentsFromMoodle(request, getTheAuditeurIdPromise);
 
                     final Map<String, Object> mapInfo = keyShare.getMap();
                     mapInfo.put(user.getUserId(), moodleConfig.getInteger("idEditingTeacher"));
 
-                    CompositeFuture.all(getUsersFuture, getUsersInGroupsFuture, getBookmarksFuture, getTheAuditeurIdFuture).setHandler(event -> {
+                    Future.all(getUsersPromise.future(), getUsersInGroupsPromise.future(), getBookmarksPromise.future(), getTheAuditeurIdPromise.future()).onComplete(event -> {
                         if (event.succeeded()) {
-                            JsonArray usersFutureResult = getUsersFuture.result();
-                            JsonArray groupsFutureResult = getUsersInGroupsFuture.result();
-                            JsonArray bookmarksFutureResult = getBookmarksFuture.result();
-                            JsonArray getTheAuditeurIdFutureResult = getTheAuditeurIdFuture.result().getJsonObject(0)
+                            JsonArray usersFutureResult = getUsersPromise.future().result();
+                            JsonArray groupsFutureResult = getUsersInGroupsPromise.future().result();
+                            JsonArray bookmarksFutureResult = getBookmarksPromise.future().result();
+                            JsonArray getTheAuditeurIdFutureResult = getTheAuditeurIdPromise.future().result().getJsonObject(0)
                                     .getJsonArray("enrolments").getJsonObject(0).getJsonArray("users");
 
                             JsonObject auditeur = new JsonObject();
@@ -332,7 +328,7 @@ public class ShareController extends ControllerHelper {
                                     UserUtils.groupDisplayName(groupJson, I18n.acceptLanguage(request));
                                 }
                             }
-                            ArrayList<Future> listUsersFutures = new ArrayList<>();
+                            ArrayList<Future<JsonArray>> listUsersFutures = new ArrayList<>();
                             List<Integer> listRankGroup = new ArrayList<>();
                             int i = 0;
                             if (bookmarksFutureResult != null && !bookmarksFutureResult.isEmpty()) {
@@ -340,7 +336,7 @@ public class ShareController extends ControllerHelper {
                                         bookmarksFutureResult, listUsersFutures, listRankGroup, i);
                             }
                             if (listUsersFutures.size() > 0) {
-                                CompositeFuture.all(listUsersFutures).setHandler(finished -> {
+                                Future.all(listUsersFutures).onComplete(finished -> {
                                     if (finished.succeeded()) {
                                         postShareProcessingService.processUsersInBookmarksFutureResult(shareObjectToFill,
                                                 listUsersFutures, listRankGroup);

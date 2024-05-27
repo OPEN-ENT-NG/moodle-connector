@@ -3,6 +3,7 @@ package fr.openent.moodle;
 import fr.openent.moodle.controllers.*;
 import fr.openent.moodle.cron.NotifyMoodle;
 import fr.openent.moodle.cron.SynchDuplicationMoodle;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.events.EventStore;
@@ -82,8 +83,8 @@ public class Moodle extends BaseServer {
 	public static JsonObject moodleMultiClient;
 
 	@Override
-	public void start() throws Exception {
-		super.start();
+	public void start(Promise<Void> startPromise) throws Exception {
+		super.start(startPromise);
 
 		ROLE_AUDITEUR = config.getInteger("idAuditeur");
 		ROLE_EDITEUR = config.getInteger("idEditingTeacher");
@@ -153,5 +154,8 @@ public class Moodle extends BaseServer {
 		addController(duplicateController);
 		addController(folderController);
 		addController(shareController);
+
+		startPromise.tryComplete();
+		startPromise.tryFail("[Moodle-connector@Moodle::start] Fail to start Moodle-connector");
 	}
 }
