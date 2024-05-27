@@ -4,9 +4,8 @@ import fr.wseduc.webutils.Either;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.*;
+import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.ProxyOptions;
@@ -58,8 +57,7 @@ public class HttpClientHelper extends ControllerHelper {
     }
 
     public static void webServiceMoodlePost(JsonObject shareSend, String moodleUrl, Vertx vertx, JsonObject moodleClient,
-                                            Handler<Either<String, Buffer>> handler) throws UnsupportedEncodingException {
-
+                                             Handler<Either<String, Buffer>> handler) throws UnsupportedEncodingException {
         final AtomicBoolean responseIsSent = new AtomicBoolean(false);
         final HttpClient httpClient = HttpClientHelper.createHttpClient(vertx, moodleClient);
 
@@ -71,62 +69,74 @@ public class HttpClientHelper extends ControllerHelper {
             return;
         }
 
-        final HttpClientRequest httpClientRequest = httpClient.postAbs(url.toString(), response -> {
-            if (response.statusCode() == 200) {
-                final Buffer buff = Buffer.buffer();
-                response.handler(buff::appendBuffer);
-                response.endHandler(end -> {
-                    handler.handle(new Either.Right<>(buff));
-                    if (!responseIsSent.getAndSet(true)) {
-                        httpClient.close();
-                    }
-                });
-            } else {
-                log.error("Fail to post webservice" + response.statusMessage());
-                handler.handle(new Either.Left<>("Fail to post webservice" + response.statusMessage()));
-                response.bodyHandler(event -> {
-                    log.error("Returning body after POST CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
-                    if (!responseIsSent.getAndSet(true)) {
-                        httpClient.close();
-                    }
-                });
-            }
-        });
+        httpClient.request(createWebServiceMoodlePostRequestOptions(url, moodleClient))
+                .flatMap(httpClientRequest -> {
+                    httpClientRequest.setFollowRedirects(true);
 
-        httpClientRequest.putHeader("Host", moodleClient.getString("address_moodle")
+                    if(shareSend == null)
+                        return httpClientRequest.send();
+
+
+                    Buffer chunk = Buffer.buffer()
+                            .appendBuffer(Buffer.buffer("wstoken=" + shareSend.getString("wstoken") +
+                            "&wsfunction=" + shareSend.getString("wsfunction") +
+                            "&moodlewsrestformat=" + shareSend.getString("moodlewsrestformat")));
+
+                    Object parameters = shareSend.getMap().get("parameters");
+                    String encodedParameters = "";
+                    if (parameters instanceof JsonObject) {
+                        encodedParameters = ((JsonObject) parameters).encode();
+                    } else if (parameters instanceof JsonArray) {
+                        encodedParameters = ((JsonArray) parameters).encode();
+                    }
+                    if(!encodedParameters.isEmpty()){
+                        chunk.appendBuffer(Buffer.buffer("&parameters=" + encodedParameters));
+                    }
+
+                    return httpClientRequest.send(chunk);
+                })
+                .onSuccess(response -> {
+                    if (response.statusCode() == 200) {
+                        final Buffer buff = Buffer.buffer();
+                        response.handler(buff::appendBuffer);
+                        response.endHandler(end -> {
+                            handler.handle(new Either.Right<>(buff));
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    } else {
+                        log.error("Fail to post webservice" + response.statusMessage());
+                        handler.handle(new Either.Left<>("Fail to post webservice" + response.statusMessage()));
+                        response.bodyHandler(event -> {
+                            log.error("Returning body after POST CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    }
+                })
+                .onFailure(throwable -> {
+                    log.error(throwable.getMessage(), throwable);
+                    if (!responseIsSent.getAndSet(true)) {
+                        httpClient.close();
+                    }
+                });
+
+
+
+    }
+
+    private static RequestOptions createWebServiceMoodlePostRequestOptions(URI url, JsonObject moodleClient){
+        HeadersMultiMap headers = new HeadersMultiMap();
+        headers.add("Host", moodleClient.getString("address_moodle")
                 .replace("http://","").replace("https://",""));
-        httpClientRequest.putHeader("Content-type", "application/x-www-form-urlencoded");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(new Handler<Throwable>() {
-            @Override
-            public void handle(Throwable event) {
-                log.error(event.getMessage(), event);
-                if (!responseIsSent.getAndSet(true)) {
-                    handle(event);
-                    httpClient.close();
-                }
-            }
-        }).setFollowRedirects(true);
+        headers.add("Content-type", "application/x-www-form-urlencoded");
 
-        if (shareSend != null) {
-            Buffer chunk = Buffer.buffer();
-            chunk.appendBuffer(Buffer.buffer("wstoken=" + shareSend.getString("wstoken") +
-                    "&wsfunction=" + shareSend.getString("wsfunction") +
-                    "&moodlewsrestformat=" + shareSend.getString("moodlewsrestformat")));
 
-            Object parameters = shareSend.getMap().get("parameters");
-            String encodedParameters = "";
-            if (parameters instanceof JsonObject) {
-                encodedParameters = ((JsonObject) parameters).encode();
-            } else if (parameters instanceof JsonArray) {
-                encodedParameters = ((JsonArray) parameters).encode();
-            }
-            if(!encodedParameters.isEmpty()){
-                chunk.appendBuffer(Buffer.buffer("&parameters=" + encodedParameters));
-            }
-            httpClientRequest.end(chunk);
-        } else {
-            httpClientRequest.end();
-        }
+        return new RequestOptions()
+                .setAbsoluteURI(url.toString())
+                .setMethod(HttpMethod.POST)
+                .setHeaders(headers);
     }
 }

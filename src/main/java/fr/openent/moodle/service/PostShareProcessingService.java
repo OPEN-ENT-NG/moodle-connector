@@ -3,6 +3,7 @@ package fr.openent.moodle.service;
 import fr.wseduc.webutils.Either;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -17,13 +18,13 @@ public interface PostShareProcessingService {
 
     void getResultBookmarks(JsonObject shareCourseObject, JsonArray bookmarksIds, Map<String, Object> idBookmarks, JsonObject idFront, JsonObject keyShare, Handler<Either<String, JsonArray>> handler);
 
-    void getUsersFuture(JsonArray usersIds, Future<JsonArray> getUsersFuture);
+    void getUsersPromise(JsonArray usersIds, Promise<JsonArray> getUsersPromise);
 
-    void getUsersInGroupsFuture(JsonArray groupsIds, Future<JsonArray> getUsersInGroupsFuture);
+    void getUsersInGroupsPromise(JsonArray groupsIds, Promise<JsonArray> getUsersInGroupsPromise);
 
-    void getUsersInBookmarksFuture(JsonArray bookmarksIds, Future<JsonArray> getBookmarksFuture);
+    void getUsersInBookmarksPromise(JsonArray bookmarksIds, Promise<JsonArray> getUsersInBookmarksPromise);
 
-    void getUsersInBookmarksFutureLoop(JsonObject shareObjectToFill, Map<String, Object> mapInfo, JsonArray bookmarksFutureResult, List<Future> listUsersFutures, List<Integer> listRankGroup, int i);
+    void getUsersInBookmarksFutureLoop(JsonObject shareObjectToFill, Map<String, Object> mapInfo, JsonArray bookmarksFutureResult, List<Future<JsonArray>> listUsersFutures, List<Integer> listRankGroup, int i);
 
-    void processUsersInBookmarksFutureResult(JsonObject shareObjectToFill, List<Future> listUsersFutures, List<Integer> listRankGroup);
+    void processUsersInBookmarksFutureResult(JsonObject shareObjectToFill, List<Future<JsonArray>> listUsersFutures, List<Integer> listRankGroup);
 }

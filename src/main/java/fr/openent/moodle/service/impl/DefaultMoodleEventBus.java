@@ -29,7 +29,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
 
     @Override
     public void getParams(final JsonObject action, final Handler<Either<String, JsonObject>> handler) {
-        eb.send(Moodle.DIRECTORY_BUS_ADDRESS, action, handlerToAsyncHandler(message -> {
+        eb.request(Moodle.DIRECTORY_BUS_ADDRESS, action, handlerToAsyncHandler(message -> {
             JsonObject results = message.body().getJsonObject("result");
             String email = results.getString("email");
             JsonObject info = new JsonObject();
@@ -44,7 +44,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
                 .put("action", "getDocument")
                 .put("id", idImage);
         String WORKSPACE_BUS_ADDRESS = "org.entcore.workspace";
-        eb.send(WORKSPACE_BUS_ADDRESS, action, handlerToAsyncHandler(message -> {
+        eb.request(WORKSPACE_BUS_ADDRESS, action, handlerToAsyncHandler(message -> {
             if (idImage.equals("")) {
                 handler.handle(new Either.Left<>("[DefaultDocumentService@get] An error id image"));
             } else {
@@ -59,7 +59,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
                 .put("action", "list-users")
                 .put("groupIds", groupIds);
 
-        eb.send(Moodle.DIRECTORY_BUS_ADDRESS, action, handlerToAsyncHandler(validResultHandler(handler)));
+        eb.request(Moodle.DIRECTORY_BUS_ADDRESS, action, handlerToAsyncHandler(validResultHandler(handler)));
     }
 
     @Override
@@ -67,7 +67,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
         JsonObject action = new JsonObject()
                 .put("action", "getMailUser")
                 .put("idList", zimbraEmail);
-        eb.send(Moodle.ZIMBRA_BUS_ADDRESS, action, handlerToAsyncHandler(response -> {
+        eb.request(Moodle.ZIMBRA_BUS_ADDRESS, action, handlerToAsyncHandler(response -> {
             if ("ok".equals(response.body().getString("status"))) {
                 handler.handle(new Either.Right<>(response.body().getJsonObject("message")));
             } else {
@@ -133,7 +133,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
 
                 resource.put("description", getDataObject.getString("summary"));
 
-                eb.send(Moodle.MEDIACENTRE_CREATE, resource, handlerToAsyncHandler(event -> {
+                eb.request(Moodle.MEDIACENTRE_CREATE, resource, handlerToAsyncHandler(event -> {
                     if ("ok".equals(event.body().getString("status"))) {
                         log.info("export succeeded");
                         handler.handle(new Either.Right<>(event.body().getJsonObject("result")));
@@ -160,7 +160,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
         resources.put("query", query)
                 .put("id", updateCourse.getInteger("courseid"));
 
-        eb.send(Moodle.MEDIACENTRE_UPDATE, resources, handlerToAsyncHandler(event -> {
+        eb.request(Moodle.MEDIACENTRE_UPDATE, resources, handlerToAsyncHandler(event -> {
             if ("ok".equals(event.body().getString("status"))) {
                 log.info("export succeeded");
                 handler.handle(new Either.Right<>(event.body().getJsonObject("result")));
@@ -177,7 +177,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
             query.getJsonObject("query").getJsonObject("bool").getJsonArray("should").add(new JsonObject()
                     .put("term", new JsonObject().put("id", deleteEvent.getJsonArray("coursesId").getValue(i).toString())));
         }
-        eb.send(Moodle.MEDIACENTRE_DELETE, query, handlerToAsyncHandler(deleteEventBus -> {
+        eb.request(Moodle.MEDIACENTRE_DELETE, query, handlerToAsyncHandler(deleteEventBus -> {
             if ("ok".equals(deleteEventBus.body().getString("status"))) {
                 log.info("ElasticSearch course delete");
                 JsonArray idsToDelete = new JsonArray();
@@ -225,7 +225,7 @@ public class DefaultMoodleEventBus extends ControllerHelper implements MoodleEve
         resources.put("query", query)
                 .put("id", updateMetadata.getJsonArray("coursesId").getInteger(0));
 
-        eb.send(Moodle.MEDIACENTRE_UPDATE, resources, handlerToAsyncHandler(event -> {
+        eb.request(Moodle.MEDIACENTRE_UPDATE, resources, handlerToAsyncHandler(event -> {
             if ("ok".equals(event.body().getString("status"))) {
                 log.info("export succeeded");
                 handler.handle(new Either.Right<>(event.body()));
