@@ -5,6 +5,7 @@ import fr.openent.moodle.service.PostShareProcessingService;
 import fr.wseduc.webutils.Either;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
@@ -77,39 +78,38 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
         }
     }
 
-    public void getUsersFuture(JsonArray usersIds, Future<JsonArray>
-            getUsersFuture) {
+    public void getUsersPromise(JsonArray usersIds, Promise<JsonArray> getUsersPromise){
         moduleNeoRequestService.getUsers(usersIds, eventUsers -> {
             if (eventUsers.isRight()) {
-                getUsersFuture.complete(eventUsers.right().getValue());
+                getUsersPromise.complete(eventUsers.right().getValue());
             } else {
-                getUsersFuture.fail("Users not found");
+                getUsersPromise.fail("Users not found");
             }
         });
     }
 
-    public void getUsersInGroupsFuture(JsonArray groupsIds, Future<JsonArray> getUsersInGroupsFuture) {
+    public void getUsersInGroupsPromise(JsonArray groupsIds, Promise<JsonArray> getUsersInGroupsPromise) {
         moduleNeoRequestService.getGroups(groupsIds, eventGroups -> {
             if (eventGroups.isRight()) {
-                getUsersInGroupsFuture.complete(eventGroups.right().getValue());
+                getUsersInGroupsPromise.complete(eventGroups.right().getValue());
             } else {
-                getUsersInGroupsFuture.fail("Groups not found");
+                getUsersInGroupsPromise.fail("Groups not found");
             }
         });
     }
 
-    public void getUsersInBookmarksFuture(JsonArray bookmarksIds, Future<JsonArray> getBookmarksFuture) {
+    public void getUsersInBookmarksPromise(JsonArray bookmarksIds, Promise<JsonArray> getBookmarksPromise) {
         moduleNeoRequestService.getSharedBookMark(bookmarksIds, eventBookmarks -> {
             if (eventBookmarks.isRight()) {
-                getBookmarksFuture.complete(eventBookmarks.right().getValue());
+                getBookmarksPromise.complete(eventBookmarks.right().getValue());
             } else {
-                getBookmarksFuture.fail("Bookmarks not found");
+                getBookmarksPromise.fail("Bookmarks not found");
             }
         });
     }
 
     public void getUsersInBookmarksFutureLoop(JsonObject shareObjectToFill, Map<String, Object> mapInfo,
-                                              JsonArray bookmarksFutureResult, List<Future> listUsersFutures,
+                                              JsonArray bookmarksFutureResult, List<Future<JsonArray>> listUsersFutures,
                                               List<Integer> listRankGroup, int i) {
         for (Object bookmark : bookmarksFutureResult.getJsonObject(0).getJsonArray("bookmarks")) {
             JsonArray shareJson = ((JsonObject) bookmark).getJsonObject("group").getJsonArray("users");
@@ -120,15 +120,15 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
                     groupsId.add(userJson.getValue("id"));
             }
             if (groupsId.size() > 0) {
-                Future<JsonArray> getUsersGroupsFuture = Future.future();
+                Promise<JsonArray> getUsersGroupsPromise = Promise.promise();
                 Handler<Either<String, JsonArray>> getUsersGroupsHandler = finalUsersGroups -> {
                     if (finalUsersGroups.isRight()) {
-                        getUsersGroupsFuture.complete(finalUsersGroups.right().getValue());
+                        getUsersGroupsPromise.complete(finalUsersGroups.right().getValue());
                     } else {
-                        getUsersGroupsFuture.fail("Bookmarks problem");
+                        getUsersGroupsPromise.fail("Bookmarks problem");
                     }
                 };
-                listUsersFutures.add(getUsersGroupsFuture);
+                listUsersFutures.add(getUsersGroupsPromise.future());
                 listRankGroup.add(i);
                 moduleNeoRequestService.getGroups(groupsId, getUsersGroupsHandler);
             }
@@ -145,7 +145,7 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
         }
     }
 
-    public void processUsersInBookmarksFutureResult(JsonObject shareObjectToFill, List<Future> listUsersFutures,
+    public void processUsersInBookmarksFutureResult(JsonObject shareObjectToFill, List<Future<JsonArray>> listUsersFutures,
                                                     List<Integer> listRankGroup) {
         JsonArray usersBookmarkGroups;
         for (int j = 0; j < listUsersFutures.size(); j++) {
