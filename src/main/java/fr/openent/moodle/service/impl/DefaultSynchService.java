@@ -224,9 +224,7 @@ public class DefaultSynchService {
                     for (Map.Entry<String, JsonObject> entryUser : mapUsersFound.entrySet()) {
                         JsonObject jsonUserFromNeo = entryUser.getValue();
                         if (jsonUserFromNeo.getValue("deleteDate") != null) {
-                            Future getCoursesFuture = Future.future();
-                            listGetFuture.add(getCoursesFuture);
-                            getCourses(jsonUserFromNeo, getCoursesFuture);
+                            listGetFuture.add(getCourses(jsonUserFromNeo));
                         }
                          if (!areUsersEquals(jsonUserFromNeo, mapUsersMoodle.get(jsonUserFromNeo.getString("id")))) {
                              jsonUserFromNeo.put("email", jsonUserFromNeo.getString("id") + "@moodle.net");
@@ -236,9 +234,7 @@ public class DefaultSynchService {
                     }
                     for (Map.Entry<String, JsonObject> entryUser : mapUsersNotFound[0].entrySet()) {
                         JsonObject jsonUserFromNeo = entryUser.getValue();
-                        Future getCoursesFuture = Future.future();
-                        listGetFuture.add(getCoursesFuture);
-                        getCourses(jsonUserFromNeo, getCoursesFuture);
+                        listGetFuture.add(getCourses(jsonUserFromNeo));
 
                     }
                     if (arrUsersToUpdate.isEmpty()) {
@@ -268,7 +264,7 @@ public class DefaultSynchService {
                         log.info(message);
                         endSyncUsers(handler);
                     } else {
-                        CompositeFuture.all(listGetFuture).setHandler(handlerGetCourses);
+                        Future.all((List)listGetFuture).onComplete(handlerGetCourses);
                     }
                 }
             } catch (Throwable t) {
@@ -358,17 +354,15 @@ public class DefaultSynchService {
                         // si editeur ou apprenant
                         if (jsonCours.getString("role").equals(ROLE_EDITEUR.toString())
                                 || jsonCours.getString("role").equals(ROLE_APPRENANT.toString())) {
-                            Future<JsonArray> getUsersEnrolmentsFuture = Future.future();
 
                             // Détachement de l’utilisateur de ses cohortes + supprimer physiquement ?
                             // --> suppression soft dans un premier temps, et purge par la suite
 
-                            getUsersEnrolmentsFromMoodle(jsonCours.getInteger("courseid"), getUsersEnrolmentsFuture);
-                            getUsersEnrolmentsFuture.setHandler(event -> {
+                            getUsersEnrolmentsFromMoodle(jsonCours.getInteger("courseid")).onComplete(event -> {
                                 if (event.succeeded()) {
                                     int nbEditeur = 0;
                                     boolean isEditor = false;
-                                    JsonArray usersEnrolment = getUsersEnrolmentsFuture.result();
+                                    JsonArray usersEnrolment = event.result();
                                     JsonArray users = usersEnrolment.getJsonObject(0).getJsonArray("enrolments").getJsonObject(0).getJsonArray("users");
                                     for (int i = 0; i < users.size(); i++) {
                                         JsonObject user = users.getJsonObject(i);
@@ -429,7 +423,8 @@ public class DefaultSynchService {
         HttpClientHelper.webServiceMoodlePost(body, baseWsMoodleUrl, vertx, moodleClient, handlerEnrollUsers);
     }
 
-    private void getUsersEnrolmentsFromMoodle(Integer idCourse, Future<JsonArray> future) {
+    private Future<JsonArray> getUsersEnrolmentsFromMoodle(Integer idCourse) {
+        final Promise<JsonArray> promise = Promise.promise();
         final HttpClient httpClient = HttpClientHelper.createHttpClient(vertx, moodleClient);
         final AtomicBoolean responseIsSent = new AtomicBoolean(false);
         Buffer wsResponse = new BufferImpl();
@@ -443,7 +438,7 @@ public class DefaultSynchService {
                 response.handler(wsResponse::appendBuffer);
                 response.endHandler(end -> {
                     JsonArray finalGroups = new JsonArray(wsResponse);
-                    future.complete(finalGroups);
+                    promise.complete(finalGroups);
                     if (!responseIsSent.getAndSet(true)) {
                         httpClient.close();
                     }
@@ -452,7 +447,7 @@ public class DefaultSynchService {
                 log.error("Fail to call get share course right webservice" + response.statusMessage());
                 response.bodyHandler(event -> {
                     log.error("Returning body after GET CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
-                    future.fail(response.statusMessage());
+                    promise.fail(response.statusMessage());
                     if (!responseIsSent.getAndSet(true)) {
                         httpClient.close();
                     }
@@ -465,14 +460,16 @@ public class DefaultSynchService {
         //Typically an unresolved Address, a timeout about connection or response
         httpClientRequest.exceptionHandler(event -> {
             log.error(event.getMessage(), event);
-            future.fail(event.getMessage());
+            promise.fail(event.getMessage());
             if (!responseIsSent.getAndSet(true)) {
                 httpClient.close();
             }
         }).end();
+        return promise.future();
     }
 
-    private void getCourses(JsonObject jsonUser, Future getCoursesFuture) {
+    private Future getCourses(JsonObject jsonUser) {
+        final Promise promise = Promise.promise();
         final String moodleUrl = baseWsMoodleUrl + "?wstoken=" + moodleClient.getString("wsToken") +
                 "&wsfunction=" + WS_GET_USERCOURSES +
                 "&parameters[userid]=" + jsonUser.getString("id") +
@@ -492,12 +489,12 @@ public class DefaultSynchService {
                     jsonUser.put("courses", userCourses);
                     mapUsersMoodle.put(jsonUser.getString("id"), jsonUser);
                     log.info("End retrieving courses for user " + jsonUser.getString("id"));
-                    getCoursesFuture.complete();
+                    promise.complete();
                 });
             } else {
                 log.error("Error retrieving courses for user " + jsonUser.getString("id"));
                 log.error("response.statusCode() = " + response.statusCode());
-                getCoursesFuture.complete();
+                promise.complete();
             }
         });
 
@@ -507,7 +504,7 @@ public class DefaultSynchService {
             log.error(event.getMessage(), event);
             responseIsSent.getAndSet(true);//renderError(request);
         }).end();
-
+        return promise.future();
     }
 
     private boolean areUsersEquals(JsonObject jsonUserFromNeo, JsonObject jsonUserFromMoodle) {
@@ -619,7 +616,7 @@ public class DefaultSynchService {
         putCohortsInMap(jsonArrayCohorts);
 
         //---HANDLERS--
-        Future getGroupsFuture = Future.future();
+        final Promise getGroupsFuture = Promise.promise();
         Handler<Either<String, JsonArray>> getGroupsHandler = resultGroups -> {
             try {
                 if (resultGroups.isLeft()) {
@@ -647,7 +644,7 @@ public class DefaultSynchService {
             }
         };
 
-        Future getSharedBookMarkFuture = Future.future();
+        Promise getSharedBookMarkFuture = Promise.promise();
         Handler<Either<String, Map<String, JsonObject>>> getSharedBookMarkHandler = resultSharedBookMark -> {
             try {
                 if (resultSharedBookMark.isLeft()) {
@@ -825,7 +822,7 @@ public class DefaultSynchService {
         //---FIN HANDLERS--
 
 
-        CompositeFuture.all(getGroupsFuture, getSharedBookMarkFuture).setHandler(handlerGetAllGroups);
+        Future.all(getGroupsFuture.future(), getSharedBookMarkFuture.future()).onComplete(handlerGetAllGroups);
 
 
         List lstGroupIds = Arrays.asList(mapCohortsMoodle.keySet().toArray());
@@ -877,20 +874,20 @@ public class DefaultSynchService {
             log.info(message);
             endSyncGroups(handler);
         } else {
-            Future updateCohortsFuture = Future.future();
-            Future deleteCohortsFuture = Future.future();
+            Promise updateCohortsFuture = Promise.promise();
+            Promise deleteCohortsFuture = Promise.promise();
             List<Future> listFuture = new ArrayList<>();
 
             if(!arrCohortsToUpdate.isEmpty()) {
-                listFuture.add(updateCohortsFuture);
+                listFuture.add(updateCohortsFuture.future());
             }
 
             if(!arrCohortsToDelete.isEmpty()) {
-                listFuture.add(deleteCohortsFuture);
+                listFuture.add(deleteCohortsFuture.future());
             }
 
 
-            CompositeFuture.all(listFuture).setHandler(handlerUpdateAndDeleteCohorts);
+            CompositeFuture.all(listFuture).onComplete(handlerUpdateAndDeleteCohorts);
 
             if(!arrCohortsToUpdate.isEmpty()) {
                 log.info(arrCohortsToUpdate.toString());
@@ -935,11 +932,9 @@ public class DefaultSynchService {
             // Recupération des cours de tous ces utilisateurs
             List<Future> listGetFuture = new ArrayList<>();
             for (Object idUser: usersIdsToEnrrollIndivually) {
-                Future getCoursesFuture = Future.future();
-                listGetFuture.add(getCoursesFuture);
-                getCourses(new JsonObject().put("id", idUser), getCoursesFuture);
+                listGetFuture.add(getCourses(new JsonObject().put("id", idUser)));
             }
-            CompositeFuture.all(listGetFuture).setHandler(eventFuture -> {
+            CompositeFuture.all(listGetFuture).onComplete(eventFuture -> {
 
                 if (eventFuture.succeeded()) {
                     log.info("END getting courses");

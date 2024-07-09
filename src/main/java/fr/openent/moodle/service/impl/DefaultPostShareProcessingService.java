@@ -5,6 +5,7 @@ import fr.openent.moodle.service.PostShareProcessingService;
 import fr.wseduc.webutils.Either;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
@@ -77,35 +78,40 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
         }
     }
 
-    public void getUsersFuture(JsonArray usersIds, Future<JsonArray>
-            getUsersFuture) {
+    public Future<JsonArray> getUsersFuture(JsonArray usersIds) {
+        final Promise<JsonArray> promise = Promise.promise();
         moduleNeoRequestService.getUsers(usersIds, eventUsers -> {
             if (eventUsers.isRight()) {
-                getUsersFuture.complete(eventUsers.right().getValue());
+                promise.complete(eventUsers.right().getValue());
             } else {
-                getUsersFuture.fail("Users not found");
+                promise.fail("Users not found");
             }
         });
+        return promise.future();
     }
 
-    public void getUsersInGroupsFuture(JsonArray groupsIds, Future<JsonArray> getUsersInGroupsFuture) {
+    public Future<JsonArray> getUsersInGroupsFuture(JsonArray groupsIds) {
+        final Promise<JsonArray> promise = Promise.promise();
         moduleNeoRequestService.getGroups(groupsIds, eventGroups -> {
             if (eventGroups.isRight()) {
-                getUsersInGroupsFuture.complete(eventGroups.right().getValue());
+                promise.complete(eventGroups.right().getValue());
             } else {
-                getUsersInGroupsFuture.fail("Groups not found");
+                promise.fail("Groups not found");
             }
         });
+        return promise.future();
     }
 
-    public void getUsersInBookmarksFuture(JsonArray bookmarksIds, Future<JsonArray> getBookmarksFuture) {
+    public Future<JsonArray> getUsersInBookmarksFuture(JsonArray bookmarksIds) {
+        final Promise<JsonArray> promise = Promise.promise();
         moduleNeoRequestService.getSharedBookMark(bookmarksIds, eventBookmarks -> {
             if (eventBookmarks.isRight()) {
-                getBookmarksFuture.complete(eventBookmarks.right().getValue());
+                promise.complete(eventBookmarks.right().getValue());
             } else {
-                getBookmarksFuture.fail("Bookmarks not found");
+                promise.fail("Bookmarks not found");
             }
         });
+        return promise.future();
     }
 
     public void getUsersInBookmarksFutureLoop(JsonObject shareObjectToFill, Map<String, Object> mapInfo,
@@ -120,7 +126,7 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
                     groupsId.add(userJson.getValue("id"));
             }
             if (groupsId.size() > 0) {
-                Future<JsonArray> getUsersGroupsFuture = Future.future();
+                final Promise<JsonArray> getUsersGroupsFuture = Promise.promise();
                 Handler<Either<String, JsonArray>> getUsersGroupsHandler = finalUsersGroups -> {
                     if (finalUsersGroups.isRight()) {
                         getUsersGroupsFuture.complete(finalUsersGroups.right().getValue());
@@ -128,7 +134,7 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
                         getUsersGroupsFuture.fail("Bookmarks problem");
                     }
                 };
-                listUsersFutures.add(getUsersGroupsFuture);
+                listUsersFutures.add(getUsersGroupsFuture.future());
                 listRankGroup.add(i);
                 moduleNeoRequestService.getGroups(groupsId, getUsersGroupsHandler);
             }

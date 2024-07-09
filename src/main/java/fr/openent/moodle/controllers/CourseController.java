@@ -19,10 +19,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
@@ -187,18 +184,20 @@ public class CourseController extends ControllerHelper {
                 final AtomicBoolean responseIsSent = new AtomicBoolean(false);
                 Buffer wsResponse = new BufferImpl();
                 log.info("CALL WS_GET_USERCOURSES : " + moodleUrl);
-                final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl,
-                        getHttpClientResponseHandler(request, user, idUser, sqlCourses, httpClient, moodleUrl, responseIsSent, wsResponse));
-                httpClientRequest.headers().set("Content-Length", "0");
-                httpClientRequest.exceptionHandler(eventClientRequest -> {
+                httpClient.request(new RequestOptions()
+                  .setAbsoluteURI(moodleUrl)
+                  .addHeader("Content-Length", "0"))
+                  .flatMap(HttpClientRequest::send)
+                  .onSuccess(getHttpClientResponseHandler(request, user, idUser, sqlCourses, httpClient, moodleUrl, responseIsSent, wsResponse))
+                  .onFailure(eventClientRequest -> {
                     Utils.sendErrorRequest(request, "Typically an unresolved Address, a timeout about connection or response : " +
-                            eventClientRequest.getMessage() +
-                            eventClientRequest);
+                      eventClientRequest.getMessage() +
+                      eventClientRequest);
                     if (!responseIsSent.getAndSet(true)) {
                         renderError(request);
                         httpClient.close();
                     }
-                }).end();
+                  });
             } else {
                 Utils.sendErrorRequest(request, "Get list courses in Ent Base failed : " +
                         eventSqlCourses.left().getValue());

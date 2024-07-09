@@ -17,11 +17,11 @@ public interface PostShareProcessingService {
 
     void getResultBookmarks(JsonObject shareCourseObject, JsonArray bookmarksIds, Map<String, Object> idBookmarks, JsonObject idFront, JsonObject keyShare, Handler<Either<String, JsonArray>> handler);
 
-    void getUsersFuture(JsonArray usersIds, Future<JsonArray> getUsersFuture);
+    Future<JsonArray> getUsersFuture(JsonArray usersIds);
 
-    void getUsersInGroupsFuture(JsonArray groupsIds, Future<JsonArray> getUsersInGroupsFuture);
+    Future<JsonArray> getUsersInGroupsFuture(JsonArray groupsIds);
 
-    void getUsersInBookmarksFuture(JsonArray bookmarksIds, Future<JsonArray> getBookmarksFuture);
+    Future<JsonArray> getUsersInBookmarksFuture(JsonArray bookmarksIds);
 
     void getUsersInBookmarksFutureLoop(JsonObject shareObjectToFill, Map<String, Object> mapInfo, JsonArray bookmarksFutureResult, List<Future> listUsersFutures, List<Integer> listRankGroup, int i);
 
