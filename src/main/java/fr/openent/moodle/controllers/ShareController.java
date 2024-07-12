@@ -21,10 +21,7 @@ import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
@@ -101,7 +98,6 @@ public class ShareController extends ControllerHelper {
      *
      * @param request Http request
      * @param user    User infos
-     * @param future  Future to get the shareJson model
      */
     private Future<JsonObject> getShareJsonInfos(HttpServerRequest request, UserInfos user) {
         final Promise<JsonObject> promise = Promise.promise();
@@ -120,7 +116,6 @@ public class ShareController extends ControllerHelper {
      * Get the Moodle users with the Web-Service from Moodle
      *
      * @param request Http request
-     * @param future  Future to get the Moodle users
      */
     private Future<JsonArray> getUsersEnrolmentsFromMoodle(HttpServerRequest request) {
         final Promise<JsonArray> promise = Promise.promise();
@@ -154,18 +149,21 @@ public class ShareController extends ControllerHelper {
                 });
             }
         };
-
-        final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl, getUsersEnrolmentsHandler);
-        httpClientRequest.headers().set("Content-Length", "0");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(event -> {
-            log.error(event.getMessage(), event);
-            promise.fail(event.getMessage());
-            if (!responseIsSent.getAndSet(true)) {
-                renderError(request);
-                httpClient.close();
-            }
-        }).end();
+        httpClient.request(new RequestOptions()
+                .setMethod(HttpMethod.GET)
+                .setAbsoluteURI(moodleUrl)
+                .addHeader("Content-Length", "0"))
+                .flatMap(HttpClientRequest::send)
+                .onSuccess(getUsersEnrolmentsHandler)
+                .onFailure(event -> {
+                    //Typically an unresolved Address, a timeout about connection or response
+                    log.error(event.getMessage(), event);
+                    promise.fail(event.getMessage());
+                    if (!responseIsSent.getAndSet(true)) {
+                        renderError(request);
+                        httpClient.close();
+                    }
+                });
         return promise.future();
     }
 

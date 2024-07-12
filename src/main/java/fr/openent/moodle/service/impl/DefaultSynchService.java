@@ -9,9 +9,7 @@ import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -454,17 +452,20 @@ public class DefaultSynchService {
                 });
             }
         };
-
-        final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl, getUsersEnrolmentsHandler);
-        httpClientRequest.headers().set("Content-Length", "0");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(event -> {
-            log.error(event.getMessage(), event);
-            promise.fail(event.getMessage());
-            if (!responseIsSent.getAndSet(true)) {
-                httpClient.close();
-            }
-        }).end();
+        httpClient.request(new RequestOptions()
+                .setMethod(HttpMethod.GET)
+                .setAbsoluteURI(moodleUrl)
+                .addHeader("Content-Length", "0"))
+                .flatMap(HttpClientRequest::send)
+                .onSuccess(getUsersEnrolmentsHandler)
+                .onFailure(event -> {
+                    //Typically an unresolved Address, a timeout about connection or response
+                    log.error(event.getMessage(), event);
+                    promise.fail(event.getMessage());
+                    if (!responseIsSent.getAndSet(true)) {
+                        httpClient.close();
+                    }
+                });
         return promise.future();
     }
 
@@ -477,33 +478,36 @@ public class DefaultSynchService {
         final AtomicBoolean responseIsSent = new AtomicBoolean(false);
         Buffer wsResponse = new BufferImpl();
         log.info("Start retrieving courses for user " + jsonUser.getString("id"));
-        final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl, response -> {
-            if (response.statusCode() == 200) {
+        httpClient.request(new RequestOptions()
+                .setMethod(HttpMethod.GET)
+                .setAbsoluteURI(moodleUrl)
+                .addHeader("Content-Length", "0"))
+                .flatMap(HttpClientRequest::send)
+                .onSuccess(response -> {
+                    if (response.statusCode() == 200) {
 
-                response.handler(wsResponse::appendBuffer);
-                response.endHandler(end -> {
-                    JsonArray object = new JsonArray(wsResponse);
-                    JsonArray userCoursesDuplicate = object.getJsonObject(0).getJsonArray("enrolments");
-                    JsonArray userCourses = Utils.removeDuplicateCourses(userCoursesDuplicate);
+                        response.handler(wsResponse::appendBuffer);
+                        response.endHandler(end -> {
+                            JsonArray object = new JsonArray(wsResponse);
+                            JsonArray userCoursesDuplicate = object.getJsonObject(0).getJsonArray("enrolments");
+                            JsonArray userCourses = Utils.removeDuplicateCourses(userCoursesDuplicate);
 
-                    jsonUser.put("courses", userCourses);
-                    mapUsersMoodle.put(jsonUser.getString("id"), jsonUser);
-                    log.info("End retrieving courses for user " + jsonUser.getString("id"));
-                    promise.complete();
+                            jsonUser.put("courses", userCourses);
+                            mapUsersMoodle.put(jsonUser.getString("id"), jsonUser);
+                            log.info("End retrieving courses for user " + jsonUser.getString("id"));
+                            promise.complete();
+                        });
+                    } else {
+                        log.error("Error retrieving courses for user " + jsonUser.getString("id"));
+                        log.error("response.statusCode() = " + response.statusCode());
+                        promise.complete();
+                    }
+                })
+                .onFailure(event -> {
+                    //Typically an unresolved Address, a timeout about connection or response
+                    log.error(event.getMessage(), event);
+                    responseIsSent.getAndSet(true);//renderError(request);
                 });
-            } else {
-                log.error("Error retrieving courses for user " + jsonUser.getString("id"));
-                log.error("response.statusCode() = " + response.statusCode());
-                promise.complete();
-            }
-        });
-
-        httpClientRequest.headers().set("Content-Length", "0");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(event -> {
-            log.error(event.getMessage(), event);
-            responseIsSent.getAndSet(true);//renderError(request);
-        }).end();
         return promise.future();
     }
 

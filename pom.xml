@@ -33,7 +33,6 @@
         <web-utils.version>3.0-b2school-SNAPSHOT</web-utils.version>
         <mongodb-helper.version>3.0-b2school-SNAPSHOT</mongodb-helper.version>
         <vertxCronTimerVersion>2.0.0</vertxCronTimerVersion>
-        <junitVersion>4.13.2</junitVersion>
     </properties>
 
     <dependencies>
@@ -47,7 +46,7 @@
             <groupId>io.vertx</groupId>
             <artifactId>vertx-web-client</artifactId>
             <version>${vertxVersion}</version>
-            <scope>provided</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.entcore</groupId>
@@ -60,12 +59,6 @@
             <artifactId>vertx-cron-timer</artifactId>
             <version>${vertxCronTimerVersion}</version>
             <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junitVersion}</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.entcore</groupId>

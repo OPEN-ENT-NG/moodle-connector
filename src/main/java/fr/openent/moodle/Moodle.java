@@ -16,6 +16,7 @@ import org.entcore.common.sql.SqlConfs;
 import org.entcore.common.storage.Storage;
 import org.entcore.common.storage.StorageFactory;
 import fr.wseduc.cron.CronTrigger;
+import io.vertx.core.Promise;
 
 import java.text.ParseException;
 import java.util.Iterator;
@@ -82,8 +83,8 @@ public class Moodle extends BaseServer {
 	public static JsonObject moodleMultiClient;
 
 	@Override
-	public void start() throws Exception {
-		super.start();
+	public void start(Promise<Void> startPromise) throws Exception {
+		super.start(startPromise);
 
 		ROLE_AUDITEUR = config.getInteger("idAuditeur");
 		ROLE_EDITEUR = config.getInteger("idEditingTeacher");
@@ -153,5 +154,8 @@ public class Moodle extends BaseServer {
 		addController(duplicateController);
 		addController(folderController);
 		addController(shareController);
+
+		startPromise.tryComplete();
+		startPromise.tryFail("[Moodle@Moodle::start] Fail to start Moodle-connector");
 	}
 }

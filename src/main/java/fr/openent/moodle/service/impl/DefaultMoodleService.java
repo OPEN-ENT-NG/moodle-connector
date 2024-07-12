@@ -8,9 +8,8 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.http.*;
+import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -66,15 +65,18 @@ public class DefaultMoodleService implements MoodleService {
             }
         };
 
-        final HttpClientRequest httpClientRequest = httpClient.getAbs(moodleUrl, getAuditeurHandler);
-        httpClientRequest.headers().set("Content-Length", "0");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(event -> {
-            log.error(event.getMessage(), event);
-            if (!responseIsSent.getAndSet(true)) {
-                httpClient.close();
-            }
-        }).end();
+        httpClient.request(new RequestOptions()
+                .setMethod(HttpMethod.GET)
+                .setAbsoluteURI(moodleUrl)
+                .addHeader("Content-Length", "0"))
+                .flatMap(HttpClientRequest::send)
+                .onSuccess(getAuditeurHandler)
+                .onFailure(event -> {
+                    log.error(event.getMessage(), event);
+                    if (!responseIsSent.getAndSet(true)) {
+                        httpClient.close();
+                    }
+                });
     }
 
     public void registerUserInPublicCourse(JsonArray usersId, Integer courseId, Vertx vertx, JsonObject moodleClient,

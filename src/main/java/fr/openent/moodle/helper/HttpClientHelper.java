@@ -4,9 +4,8 @@ import fr.wseduc.webutils.Either;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.*;
+import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.ProxyOptions;
@@ -71,62 +70,63 @@ public class HttpClientHelper extends ControllerHelper {
             return;
         }
 
-        final HttpClientRequest httpClientRequest = httpClient.postAbs(url.toString(), response -> {
-            if (response.statusCode() == 200) {
-                final Buffer buff = Buffer.buffer();
-                response.handler(buff::appendBuffer);
-                response.endHandler(end -> {
-                    handler.handle(new Either.Right<>(buff));
+        httpClient.request(new RequestOptions()
+                .setMethod(HttpMethod.POST)
+                .setAbsoluteURI(url.toString())
+                .setHeaders(new HeadersMultiMap()
+                        .add("Host", moodleClient.getString("address_moodle")
+                                .replace("http://","").replace("https://",""))
+                        .add("Content-type", "application/x-www-form-urlencoded"))
+                .setFollowRedirects(true))
+                .flatMap(httpClientRequest -> {
+                    if (shareSend != null) {
+                        Buffer chunk = Buffer.buffer();
+                        chunk.appendBuffer(Buffer.buffer("wstoken=" + shareSend.getString("wstoken") +
+                                "&wsfunction=" + shareSend.getString("wsfunction") +
+                                "&moodlewsrestformat=" + shareSend.getString("moodlewsrestformat")));
+
+                        Object parameters = shareSend.getMap().get("parameters");
+                        String encodedParameters = "";
+                        if (parameters instanceof JsonObject) {
+                            encodedParameters = ((JsonObject) parameters).encode();
+                        } else if (parameters instanceof JsonArray) {
+                            encodedParameters = ((JsonArray) parameters).encode();
+                        }
+                        if(!encodedParameters.isEmpty()){
+                            chunk.appendBuffer(Buffer.buffer("&parameters=" + encodedParameters));
+                        }
+                         return httpClientRequest.send(chunk);
+                    } else {
+                        return httpClientRequest.send();
+                    }
+                })
+                .onSuccess(response -> {
+                    if (response.statusCode() == 200) {
+                        final Buffer buff = Buffer.buffer();
+                        response.handler(buff::appendBuffer);
+                        response.endHandler(end -> {
+                            handler.handle(new Either.Right<>(buff));
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    } else {
+                        log.error("Fail to post webservice" + response.statusMessage());
+                        handler.handle(new Either.Left<>("Fail to post webservice" + response.statusMessage()));
+                        response.bodyHandler(event -> {
+                            log.error("Returning body after POST CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
+                            if (!responseIsSent.getAndSet(true)) {
+                                httpClient.close();
+                            }
+                        });
+                    }
+                })
+                .onFailure(event -> {
+                    //Typically an unresolved Address, a timeout about connection or response
+                    log.error(event.getMessage(), event);
                     if (!responseIsSent.getAndSet(true)) {
                         httpClient.close();
                     }
                 });
-            } else {
-                log.error("Fail to post webservice" + response.statusMessage());
-                handler.handle(new Either.Left<>("Fail to post webservice" + response.statusMessage()));
-                response.bodyHandler(event -> {
-                    log.error("Returning body after POST CALL : " + moodleUrl + ", Returning body : " + event.toString("UTF-8"));
-                    if (!responseIsSent.getAndSet(true)) {
-                        httpClient.close();
-                    }
-                });
-            }
-        });
-
-        httpClientRequest.putHeader("Host", moodleClient.getString("address_moodle")
-                .replace("http://","").replace("https://",""));
-        httpClientRequest.putHeader("Content-type", "application/x-www-form-urlencoded");
-        //Typically an unresolved Address, a timeout about connection or response
-        httpClientRequest.exceptionHandler(new Handler<Throwable>() {
-            @Override
-            public void handle(Throwable event) {
-                log.error(event.getMessage(), event);
-                if (!responseIsSent.getAndSet(true)) {
-                    handle(event);
-                    httpClient.close();
-                }
-            }
-        }).setFollowRedirects(true);
-
-        if (shareSend != null) {
-            Buffer chunk = Buffer.buffer();
-            chunk.appendBuffer(Buffer.buffer("wstoken=" + shareSend.getString("wstoken") +
-                    "&wsfunction=" + shareSend.getString("wsfunction") +
-                    "&moodlewsrestformat=" + shareSend.getString("moodlewsrestformat")));
-
-            Object parameters = shareSend.getMap().get("parameters");
-            String encodedParameters = "";
-            if (parameters instanceof JsonObject) {
-                encodedParameters = ((JsonObject) parameters).encode();
-            } else if (parameters instanceof JsonArray) {
-                encodedParameters = ((JsonArray) parameters).encode();
-            }
-            if(!encodedParameters.isEmpty()){
-                chunk.appendBuffer(Buffer.buffer("&parameters=" + encodedParameters));
-            }
-            httpClientRequest.end(chunk);
-        } else {
-            httpClientRequest.end();
-        }
     }
 }
