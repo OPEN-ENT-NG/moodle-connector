@@ -1,5 +1,5 @@
     {
-      "name": "fr.openent~moodle-connector~1.7-SNAPSHOT",
+      "name": "fr.openent~moodle-connector~2.0-b2school-SNAPSHOT",
       "config": {
         "main" : "fr.openent.moodle.Moodle",
         "port" : 8200,

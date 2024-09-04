@@ -178,7 +178,7 @@ public class CourseController extends ControllerHelper {
         return eventSqlCourses -> {
             if (eventSqlCourses.isRight()) {
                 final JsonArray sqlCourses = eventSqlCourses.right().getValue();
-                JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
+                JsonObject moodleClient = moodleMultiClient.getJsonObject(request.authority().host());
                 final HttpClient httpClient = HttpClientHelper.createHttpClient(vertx, moodleClient);
                 final String moodleUrl = createUrlMoodleGetCourses(idUser, request);
                 final AtomicBoolean responseIsSent = new AtomicBoolean(false);
