@@ -274,11 +274,11 @@ public class ShareController extends ControllerHelper {
                         }
                     });
 
+                    usersIds.add(user.getUserId());
+
                     Future<JsonArray> getUsersFuture = postShareProcessingService.getUsersFuture(usersIds);
                     Future<JsonArray> getUsersInGroupsFuture = postShareProcessingService.getUsersInGroupsFuture(groupsIds);
                     Future<JsonArray> getBookmarksFuture = postShareProcessingService.getUsersInBookmarksFuture(bookmarksIds);
-
-                    usersIds.add(user.getUserId());
 
                     Future<JsonArray> getTheAuditeurIdFuture = getUsersEnrolmentsFromMoodle(request);
 
