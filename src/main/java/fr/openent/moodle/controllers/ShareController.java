@@ -37,9 +37,12 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static fr.openent.moodle.Moodle.*;
+import static fr.openent.moodle.core.Field.*;
 import static org.entcore.common.http.response.DefaultResponseHandler.defaultResponseHandler;
 
 public class ShareController extends ControllerHelper {
@@ -305,6 +308,7 @@ public class ShareController extends ControllerHelper {
                                 badRequest(request, "No auditor role found for course : " + shareObjectToFill.getValue("courseid"));
                                 return;
                             }
+
                             if (usersFutureResult != null && !usersFutureResult.isEmpty()) {
                                 shareObjectToFill.put("users", usersFutureResult);
                                 for (Object userObject : usersFutureResult) {
@@ -325,6 +329,22 @@ public class ShareController extends ControllerHelper {
                                     UserUtils.groupDisplayName(groupJson, I18n.acceptLanguage(request));
                                 }
                             }
+
+                            // Deal with uncharing
+                            List<String> enrolledUsersId = shareObjectToFill.getJsonArray(USERS).stream()
+                                    .map(JsonObject.class::cast)
+                                    .map(userJson -> userJson.getString(ID))
+                                    .collect(Collectors.toList());
+                            List<JsonObject> usersToUnroll = getTheAuditeurIdFutureResult.stream()
+                                    .filter(Objects::nonNull)
+                                    .filter(JsonObject.class::isInstance)
+                                    .map(JsonObject.class::cast)
+                                    .filter(enrolledUser -> enrolledUser.getInteger(ROLE).equals(ROLE_APPRENANT)
+                                            && enrolledUsersId.contains(enrolledUser.getString(ID)))
+                                    .map(enrolledUser -> new JsonObject().put(ID, enrolledUser.getString(ID)))
+                                    .collect(Collectors.toList());
+                            if (!usersToUnroll.isEmpty()) shareObjectToFill.put(UNENROL_USERSUSERS, usersToUnroll);
+
                             final List<Future> listUsersFutures = new ArrayList<>();
                             final List<Integer> listRankGroup = new ArrayList<>();
                             int i = 0;
