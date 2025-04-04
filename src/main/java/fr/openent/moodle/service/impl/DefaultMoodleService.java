@@ -9,11 +9,11 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
 import io.vertx.core.http.*;
-import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.entcore.common.user.UserInfos;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -116,5 +116,22 @@ public class DefaultMoodleService implements MoodleService {
                 }
             }
         });
+    }
+
+    public void createOrUpdateUser(UserInfos user, JsonObject moodleClient, Vertx vertx, Handler<Either<String, Buffer>> handler)
+            throws UnsupportedEncodingException {
+        JsonObject body = new JsonObject();
+        JsonObject userJson = new JsonObject()
+                .put("username",user.getUserId())
+                .put("firstname",user.getFirstName())
+                .put("lastname",user.getLastName())
+                .put("id",user.getUserId())
+                .put("email",user.getUserId() + "@moodle.net");
+        body.put("parameters", new JsonArray().add(userJson))
+                .put("wstoken", moodleClient.getString("wsToken"))
+                .put("wsfunction", WS_POST_CREATE_OR_UPDATE_USER)
+                .put("moodlewsrestformat", JSON);
+        HttpClientHelper.webServiceMoodlePost(body, moodleClient.getString("address_moodle") +
+                moodleClient.getString("ws-path"), vertx, moodleClient, handler);
     }
 }
