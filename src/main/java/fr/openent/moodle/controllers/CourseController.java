@@ -4,9 +4,11 @@ import fr.openent.moodle.Moodle;
 import fr.openent.moodle.helper.HttpClientHelper;
 import fr.openent.moodle.security.AccessRight;
 import fr.openent.moodle.service.MoodleEventBus;
+import fr.openent.moodle.service.MoodleService;
 import fr.openent.moodle.service.impl.DefaultModuleSQLRequestService;
 import fr.openent.moodle.service.impl.DefaultMoodleEventBus;
 import fr.openent.moodle.service.ModuleSQLRequestService;
+import fr.openent.moodle.service.impl.DefaultMoodleService;
 import fr.openent.moodle.utils.Utils;
 import fr.wseduc.rs.*;
 import fr.wseduc.security.ActionType;
@@ -35,16 +37,14 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.util.GregorianCalendar;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static fr.openent.moodle.Moodle.*;
 import static fr.openent.moodle.controllers.PublishedController.callMediacentreEventBusToDelete;
 import static fr.openent.moodle.controllers.PublishedController.callMediacentreEventBusToUpdate;
+import static fr.openent.moodle.core.Field.*;
 import static java.util.Objects.isNull;
 import static org.entcore.common.http.response.DefaultResponseHandler.defaultResponseHandler;
 
@@ -52,6 +52,7 @@ public class CourseController extends ControllerHelper {
     private final EventStore eventStore;
     private final ModuleSQLRequestService moduleSQLRequestService;
     private final MoodleEventBus moodleEventBus;
+    private final MoodleService moodleService;
 
 
     @Override
@@ -66,6 +67,7 @@ public class CourseController extends ControllerHelper {
         this.eb = eb;
         this.moduleSQLRequestService = new DefaultModuleSQLRequestService(Moodle.moodleSchema, "course");
         this.moodleEventBus = new DefaultMoodleEventBus(eb);
+        this.moodleService = new DefaultMoodleService();
     }
 
     @Post("/course")
@@ -168,19 +170,19 @@ public class CourseController extends ControllerHelper {
         UserUtils.getUserInfos(eb, request, user -> {
             if (user != null) {
                 String idUser = user.getUserId();
-                moduleSQLRequestService.getCoursesByUserInEnt(idUser, getSQLCoursesHandler(request, user, idUser));
+                moduleSQLRequestService.getCoursesByUserInEnt(idUser, getSQLCoursesHandler(request, user));
             } else
                 unauthorized(request, "User is not authorized to access courses : ");
         });
     }
 
-    private Handler<Either<String, JsonArray>> getSQLCoursesHandler(HttpServerRequest request, UserInfos user, String idUser) {
+    private Handler<Either<String, JsonArray>> getSQLCoursesHandler(HttpServerRequest request, UserInfos user) {
         return eventSqlCourses -> {
             if (eventSqlCourses.isRight()) {
                 final JsonArray sqlCourses = eventSqlCourses.right().getValue();
                 JsonObject moodleClient = moodleMultiClient.getJsonObject(request.authority().host());
                 final HttpClient httpClient = HttpClientHelper.createHttpClient(vertx, moodleClient);
-                final String moodleUrl = createUrlMoodleGetCourses(idUser, request);
+                final String moodleUrl = createUrlMoodleGetCourses(user, request);
                 final AtomicBoolean responseIsSent = new AtomicBoolean(false);
                 Buffer wsResponse = new BufferImpl();
                 log.info("CALL WS_GET_USERCOURSES : " + moodleUrl);
@@ -188,7 +190,7 @@ public class CourseController extends ControllerHelper {
                   .setAbsoluteURI(moodleUrl)
                   .addHeader("Content-Length", "0"))
                   .flatMap(HttpClientRequest::send)
-                  .onSuccess(getHttpClientResponseHandler(request, user, idUser, sqlCourses, httpClient, moodleUrl, responseIsSent, wsResponse))
+                  .onSuccess(getHttpClientResponseHandler(request, user, user.getUserId(), sqlCourses, httpClient, moodleUrl, responseIsSent, wsResponse))
                   .onFailure(eventClientRequest -> {
                     Utils.sendErrorRequest(request, "Typically an unresolved Address, a timeout about connection or response : " +
                       eventClientRequest.getMessage() +
@@ -357,15 +359,16 @@ public class CourseController extends ControllerHelper {
         };
     }
 
-    private String createUrlMoodleGetCourses(String idUser, HttpServerRequest request) {
+    private String createUrlMoodleGetCourses(UserInfos user, HttpServerRequest request) {
+        String userId = user.getUserId();
+        String params = "&parameters[userid]=" + userId;
+        params += "&parameters[getglobalcourses]=" + (user.getType().equals(STUDENT) ? 1 : 0);
         try {
             JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
-            return "" +
-                    (moodleClient.getString("address_moodle") +
-                            moodleClient.getString("ws-path")) +
+            return (moodleClient.getString("address_moodle") + moodleClient.getString("ws-path")) +
                     "?wstoken=" + moodleClient.getString("wsToken") +
                     "&wsfunction=" + WS_GET_USERCOURSES +
-                    "&parameters[userid]=" + idUser +
+                    params +
                     "&moodlewsrestformat=" + JSON;
         } catch (Exception error) {
             log.error("Error in createUrlMoodleGetCourses" + error);
