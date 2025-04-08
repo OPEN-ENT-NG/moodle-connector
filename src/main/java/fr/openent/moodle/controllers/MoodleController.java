@@ -207,21 +207,4 @@ public class MoodleController extends ControllerHelper {
             });
         });
     }
-
-    private void createUpdateWSUrlCreateuser(UserInfos user, JsonObject moodleClient, Handler<Either<String, Buffer>> handlerUpdateUser)
-            throws UnsupportedEncodingException {
-        JsonObject body = new JsonObject();
-        JsonObject userJson = new JsonObject()
-                .put("username",user.getUserId())
-                .put("firstname",user.getFirstName())
-                .put("lastname",user.getLastName())
-                .put("id",user.getUserId())
-                .put("email",user.getUserId() + "@moodle.net");
-        body.put("parameters", new JsonArray().add(userJson))
-                .put("wstoken", moodleClient.getString("wsToken"))
-                .put("wsfunction", WS_POST_CREATE_OR_UPDATE_USER)
-                .put("moodlewsrestformat", JSON);
-        HttpClientHelper.webServiceMoodlePost(body, moodleClient.getString("address_moodle") +
-                moodleClient.getString("ws-path"), vertx, moodleClient, handlerUpdateUser);
-    }
 }

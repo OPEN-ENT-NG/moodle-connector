@@ -113,7 +113,7 @@ export class Course implements Shareable {
 
     private async goTo(): Promise<void> {
         if (this.duplication == "non")
-            window.open(`/moodle/course/${this.courseid}?scope=view`);
+            window.open(`/moodle/course/${this.courseid}?scope=view&categoryId=${this.categoryid}`);
     }
 
     async setPreferences(preference: string) {

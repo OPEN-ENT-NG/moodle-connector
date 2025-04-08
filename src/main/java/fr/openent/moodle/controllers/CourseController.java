@@ -39,6 +39,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static fr.openent.moodle.Moodle.*;
@@ -490,9 +491,39 @@ public class CourseController extends ControllerHelper {
     @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void redirectToMoodle(HttpServerRequest request) {
         String scope = request.params().contains("scope") ? request.getParam("scope") : "view";
-        JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
+        int categoryId = Integer.parseInt(request.getParam("categoryId"));
+        String courseId = request.getParam("id");
+
+        UserUtils.getUserInfos(eb, request, user -> {
+            if (user == null) {
+                log.error("User not found in session.");
+                unauthorized(request);
+                return;
+            }
+
+            JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
+            if (user.getType().equals(STUDENT) && categoryId == config.getInteger("selfEnrollmentCategoryId", null)) {
+                try {
+                    moodleService.createOrUpdateUser(user, moodleClient, vertx, bufferEvent -> {
+                        if (bufferEvent.isLeft()) {
+                            log.error("[Moodle@CourseController::redirectToMoodle] Failed to create user for global course" + bufferEvent.left().getValue());
+                            renderError(request);
+                        }
+                        redirectToMoodle(request,moodleClient, courseId, scope);
+                    });
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            else {
+                redirectToMoodle(request,moodleClient, courseId, scope);
+            }
+        });
+    }
+
+    private void redirectToMoodle(HttpServerRequest request, JsonObject moodleClient, String courseId, String scope) {
         redirect(request, moodleClient.getString("address_moodle"), "/course/" + scope + ".php?id=" +
-                request.getParam("id") + "&notifyeditingon=1");
+                courseId + "&notifyeditingon=1");
     }
 
     @Put("/course/preferences")
