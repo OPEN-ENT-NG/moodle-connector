@@ -12,5 +12,5 @@ public class Field {
     public static final String USERS = "users";
     public static final String UNENROL_USERSUSERS = "unenrol_users";
     public static final String ROLE = "role";
-
+    public static final String STUDENT = "Student";
 }
