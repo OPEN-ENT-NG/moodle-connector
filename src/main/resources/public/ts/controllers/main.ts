@@ -3,6 +3,9 @@ import {Folder, Folders, Course, Courses} from "../model";
 import {Utils} from "../utils/Utils";
 import {TIME_TO_REFRESH_DUPLICATION, STATUS} from "../constantes";
 
+
+declare var selfEnrollmentCategoryId: number;
+
 export const mainController = ng.controller('mainController', ['$scope', '$timeout', '$templateCache', 'route',
     ($scope, $timeout, $templateCache, route) => {
 
@@ -53,7 +56,7 @@ export const mainController = ng.controller('mainController', ['$scope', '$timeo
         const initViewLoading = async (): Promise<void> => {
             if ($scope.courses.isSynchronized === undefined || $scope.courses.isSynchronized === false) {
                 $scope.displayMessageLoader = true;
-                await $scope.courses.getCoursesByUser(model.me.userId)
+                await $scope.courses.getCoursesByUser(model.me.userId, $scope.selfEnrollmentCategoryId)
                     .then(() => $scope.displayMessageLoader = false)
                     .catch(() => $scope.displayMessageLoader = false);
             }
@@ -112,6 +115,7 @@ export const mainController = ng.controller('mainController', ['$scope', '$timeo
                 disciplines : [],
                 plain_text : []
             };
+            $scope.selfEnrollmentCategoryId = selfEnrollmentCategoryId;
         };
 
         $scope.setPrintSubfolderValue = function () {
@@ -154,7 +158,7 @@ export const mainController = ng.controller('mainController', ['$scope', '$timeo
         };
 
         $scope.initCoursesByUser = async function () {
-            await $scope.courses.getCoursesByUser(model.me.userId);
+            await $scope.courses.getCoursesByUser(model.me.userId, $scope.selfEnrollmentCategoryId);
             await Utils.safeApply($scope);
         };
 

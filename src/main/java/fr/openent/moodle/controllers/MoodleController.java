@@ -80,7 +80,8 @@ public class MoodleController extends ControllerHelper {
     @Get("")
     @SecuredAction(workflow_view)
     public void view(HttpServerRequest request) {
-        renderView(request);
+        JsonObject params = new JsonObject().put("selfEnrollmentCategoryId", config.getInteger("selfEnrollmentCategoryId", null));
+        renderView(request, params);
         eventStore.createAndStoreEvent(MoodleEvent.ACCESS.name(), request);
     }
 

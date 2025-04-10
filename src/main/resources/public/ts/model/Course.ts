@@ -237,7 +237,7 @@ export class Courses {
         }
     }
 
-    async getCoursesByUser(userId: string) {
+    async getCoursesByUser(userId: string, selfEnrollmentCategoryId: number) {
         try {
             let courses = await http.get(`/moodle/user/courses`);
             this.allCourses = Mix.castArrayAs(Course, courses.data.allCourses);
@@ -310,8 +310,11 @@ export class Courses {
             });
 
             this.coursesToDo = _.filter(this.coursesSharedToFollow, function (course) {
-                let coursDate = moment(course.startdate + "000", "x");
-                return coursDate.isBefore(now);
+                let coursStartDate = moment(course.startdate + "000", "x");
+                let coursEndDate = moment(course.enddate + "000", "x");
+                return course.categoryid === selfEnrollmentCategoryId && course.enddate != "0" ?
+                    coursEndDate.isAfter(now) :
+                    coursStartDate.isBefore(now);
             });
 
             this.coursesMyCourse = _.filter(this.coursesByUser, function (course) {
