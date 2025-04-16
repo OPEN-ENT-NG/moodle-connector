@@ -26,7 +26,7 @@ export const deleteController = ng.controller('deleteController', ['$scope',
                     .then(async (): Promise<void> => {
                         notify.success('moodle.info.deleteTextConfirmSuccess');
                     });
-                await $scope.courses.getCoursesByUser(model.me.userId);
+                await $scope.courses.getCoursesByUser(model.me.userId, $scope.selfEnrollmentCategoryId);
             }
             $scope.show.lightboxes = false;
             $scope.show.submitWait = false;

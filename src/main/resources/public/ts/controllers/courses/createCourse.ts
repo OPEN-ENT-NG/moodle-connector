@@ -33,7 +33,7 @@ export const createCourseController = ng.controller('createCourseController', ['
                         $scope.show.currentFolderId = $scope.folders.folderIdMoveIn;
                         $scope.folders.folderIdMoveIn = undefined;
                         $scope.showToaster();
-                        await $scope.courses.getCoursesByUser(model.me.userId);
+                        await $scope.courses.getCoursesByUser(model.me.userId, $scope.selfEnrollmentCategoryId);
                         $scope.show.lightboxes = $scope.show.submitWait = false;
                     })
                     .catch((): boolean => $scope.show.submitWait = $scope.show.lightboxes = false);
