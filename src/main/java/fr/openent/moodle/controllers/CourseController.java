@@ -39,7 +39,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static fr.openent.moodle.Moodle.*;
@@ -363,7 +362,7 @@ public class CourseController extends ControllerHelper {
     private String createUrlMoodleGetCourses(UserInfos user, HttpServerRequest request) {
         String userId = user.getUserId();
         String params = "&parameters[userid]=" + userId;
-        params += "&parameters[getglobalcourses]=" + (user.getType().equals(STUDENT) ? 1 : 0);
+        params += "&parameters[getglobalcourses]=" + (!user.getType().equals(RELATIVE) ? 1 : 0);
         try {
             JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
             return (moodleClient.getString("address_moodle") + moodleClient.getString("ws-path")) +
@@ -502,7 +501,7 @@ public class CourseController extends ControllerHelper {
             }
 
             JsonObject moodleClient = moodleMultiClient.getJsonObject(request.host());
-            if (user.getType().equals(STUDENT) && categoryId == config.getInteger("selfEnrollmentCategoryId", null)) {
+            if (!user.getType().equals(RELATIVE) && categoryId == config.getInteger("selfEnrollmentCategoryId", null)) {
                 try {
                     moodleService.createOrUpdateUser(user, moodleClient, vertx, bufferEvent -> {
                         if (bufferEvent.isLeft()) {
