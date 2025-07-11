@@ -14,6 +14,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.entcore.common.migration.AppMigrationConfiguration;
 import org.entcore.common.neo4j.Neo4j;
 import org.entcore.common.neo4j.Neo4jResult;
 import org.entcore.common.user.UserUtils;
@@ -53,7 +54,10 @@ public class DefaultSynchService {
     public DefaultSynchService(EventBus eb, Vertx vertx) {
         this.eb = eb;
         this.vertx = vertx;
-        this.moduleNeoRequestService = new DefaultModuleNeoRequestService();
+        this.moduleNeoRequestService = new BrokerSwitchNeoRequestService(
+          new DefaultModuleNeoRequestService(),
+          AppMigrationConfiguration.fromVertx("referential", vertx, null),
+          vertx.eventBus());
     }
 
     private void initSyncUsers(JsonObject moodleClientToApply) {

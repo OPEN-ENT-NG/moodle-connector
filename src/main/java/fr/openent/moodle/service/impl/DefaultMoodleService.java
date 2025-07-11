@@ -13,6 +13,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.entcore.common.migration.AppMigrationConfiguration;
 import org.entcore.common.user.UserInfos;
 
 import java.io.UnsupportedEncodingException;
@@ -27,9 +28,10 @@ public class DefaultMoodleService implements MoodleService {
     private final ModuleNeoRequestService moduleNeoRequestService;
     private final Logger log = LoggerFactory.getLogger(DefaultMoodleService.class);
 
-    public DefaultMoodleService() {
+    public DefaultMoodleService(final Vertx vertx) {
         super();
-        this.moduleNeoRequestService = new DefaultModuleNeoRequestService();
+        final DefaultModuleNeoRequestService service = new DefaultModuleNeoRequestService();
+        this.moduleNeoRequestService = new BrokerSwitchNeoRequestService(service, AppMigrationConfiguration.fromVertx("referential", vertx, null), vertx.eventBus());
     }
 
     public void getAuditeur (Integer coursesId, Vertx vertx, JsonObject moodleClient,

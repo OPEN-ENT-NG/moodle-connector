@@ -60,13 +60,13 @@ public class ShareController extends ControllerHelper {
         super.init(vertx, config, rm, securedActions);
     }
 
-    public ShareController(EventBus eb, TimelineHelper timelineHelper) {
+    public ShareController(EventBus eb, final Vertx vertx, TimelineHelper timelineHelper) {
         super();
         this.eb = eb;
 
         this.getShareProcessingService = new DefaultGetShareProcessingService();
-        this.postShareProcessingService = new DefaultPostShareProcessingService();
-        this.moodleService = new DefaultMoodleService();
+        this.postShareProcessingService = new DefaultPostShareProcessingService(vertx);
+        this.moodleService = new DefaultMoodleService(vertx);
 
         this.timelineHelper = timelineHelper;
     }

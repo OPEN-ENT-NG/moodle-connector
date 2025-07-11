@@ -8,6 +8,7 @@ import io.vertx.core.json.JsonObject;
 import org.entcore.common.events.EventStore;
 import org.entcore.common.events.EventStoreFactory;
 import org.entcore.common.http.BaseServer;
+import org.entcore.common.migration.AppMigrationConfiguration;
 import org.entcore.common.notification.TimelineHelper;
 import org.entcore.common.service.impl.SqlCrudService;
 import org.entcore.common.share.impl.SqlShareService;
@@ -122,8 +123,8 @@ public class Moodle extends BaseServer {
 		CourseController courseController = new CourseController(eventStore, eb);
 		DuplicateController duplicateController = new DuplicateController(eb);
 		FolderController folderController = new FolderController(eb);
-		ShareController shareController = new ShareController(eb,timelineHelper);
-		shareController.setShareService(new SqlShareService(moodleSchema, "course_shares", eb, securedActions, null));
+		ShareController shareController = new ShareController(eb, vertx, timelineHelper);
+		shareController.setShareService(new SqlShareService(moodleSchema, "course_shares", eb, securedActions, null, AppMigrationConfiguration.fromVertx("communication", vertx, null)));
 		moodleController.setCrudService(new SqlCrudService(moodleSchema, "course"));
 		SynchController synchController = new SynchController(eb, vertx);
 

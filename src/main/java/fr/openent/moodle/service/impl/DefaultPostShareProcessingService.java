@@ -6,9 +6,11 @@ import fr.wseduc.webutils.Either;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.controller.ControllerHelper;
+import org.entcore.common.migration.AppMigrationConfiguration;
 
 import java.util.List;
 import java.util.Map;
@@ -20,9 +22,12 @@ public class DefaultPostShareProcessingService extends ControllerHelper implemen
 
     private final ModuleNeoRequestService moduleNeoRequestService;
 
-    public DefaultPostShareProcessingService() {
+    public DefaultPostShareProcessingService(final Vertx vertx) {
         super();
-        this.moduleNeoRequestService = new DefaultModuleNeoRequestService();
+        this.moduleNeoRequestService = new BrokerSwitchNeoRequestService(
+          new DefaultModuleNeoRequestService(),
+          AppMigrationConfiguration.fromVertx("referential", vertx, null),
+          vertx.eventBus());
     }
 
     public void getResultUsers(JsonObject shareCourseObject, JsonArray usersIds, Map<String, Object> idUsers,

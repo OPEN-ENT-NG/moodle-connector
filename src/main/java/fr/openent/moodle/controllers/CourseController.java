@@ -67,7 +67,7 @@ public class CourseController extends ControllerHelper {
         this.eb = eb;
         this.moduleSQLRequestService = new DefaultModuleSQLRequestService(Moodle.moodleSchema, "course");
         this.moodleEventBus = new DefaultMoodleEventBus(eb);
-        this.moodleService = new DefaultMoodleService();
+        this.moodleService = new DefaultMoodleService(vertx);
     }
 
     @Post("/course")
