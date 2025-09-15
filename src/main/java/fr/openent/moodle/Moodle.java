@@ -3,6 +3,7 @@ package fr.openent.moodle;
 import fr.openent.moodle.controllers.*;
 import fr.openent.moodle.cron.NotifyMoodle;
 import fr.openent.moodle.cron.SynchDuplicationMoodle;
+import io.vertx.core.Future;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.events.EventStore;
@@ -84,7 +85,14 @@ public class Moodle extends BaseServer {
 
 	@Override
 	public void start(Promise<Void> startPromise) throws Exception {
-		super.start(startPromise);
+    final Promise<Void> promise = Promise.promise();
+    super.start(promise);
+    promise.future()
+      .compose(e -> this.initMoodle())
+      .onComplete(startPromise);
+  }
+
+  public Future<Void> initMoodle() {
 
 		ROLE_AUDITEUR = config.getInteger("idAuditeur");
 		ROLE_EDITEUR = config.getInteger("idEditingTeacher");
@@ -108,54 +116,55 @@ public class Moodle extends BaseServer {
 			moodleMultiClient = monoClient;
 		}
 
-		final Storage storage = new StorageFactory(vertx, config, /*new ExercizerStorage()*/ null).getStorage();
+		return StorageFactory.build(vertx, config)
+      .compose(factory -> {
+        final Storage storage = factory.getStorage();
 
-		SqlConf courseConf = SqlConfs.createConf(MoodleController.class.getName());
-		courseConf.setSchema("moodle");
-		courseConf.setTable("course");
-		courseConf.setShareTable("course_shares");
+        SqlConf courseConf = SqlConfs.createConf(MoodleController.class.getName());
+        courseConf.setSchema("moodle");
+        courseConf.setTable("course");
+        courseConf.setShareTable("course_shares");
 
-		TimelineHelper timelineHelper = new TimelineHelper(vertx, eb, config);
+        TimelineHelper timelineHelper = new TimelineHelper(vertx, eb, config);
 
-		MoodleController moodleController = new MoodleController(eventStore, storage, eb, vertx);
+        MoodleController moodleController = new MoodleController(eventStore, storage, eb, vertx);
         PublishedController publishedController = new PublishedController(eb);
-		CourseController courseController = new CourseController(eventStore, eb);
-		DuplicateController duplicateController = new DuplicateController(eb);
-		FolderController folderController = new FolderController(eb);
-		ShareController shareController = new ShareController(eb,timelineHelper);
-		shareController.setShareService(new SqlShareService(moodleSchema, "course_shares", eb, securedActions, null));
-		moodleController.setCrudService(new SqlCrudService(moodleSchema, "course"));
-		SynchController synchController = new SynchController(eb, vertx);
+        CourseController courseController = new CourseController(eventStore, eb);
+        DuplicateController duplicateController = new DuplicateController(eb);
+        FolderController folderController = new FolderController(eb);
+        ShareController shareController = new ShareController(eb, timelineHelper);
+        shareController.setShareService(new SqlShareService(moodleSchema, "course_shares", eb, securedActions, null));
+        moodleController.setCrudService(new SqlCrudService(moodleSchema, "course"));
+        SynchController synchController = new SynchController(eb, vertx);
 
 
-		try {
-			new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule(
-					new SynchDuplicationMoodle(vertx)
-			);
-		} catch (ParseException e) {
-			log.fatal("Invalid timeSecondSynchCron cron expression.", e);
-		}
+        try {
+          new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule(
+            new SynchDuplicationMoodle(vertx)
+          );
+        } catch (ParseException e) {
+          log.fatal("Invalid timeSecondSynchCron cron expression.", e);
+        }
 
-		try {
-			for (Iterator<Map.Entry<String, Object>> it = moodleMultiClient.stream().iterator(); it.hasNext(); ) {
-				JsonObject moodleClient = (JsonObject) it.next().getValue();
-				new CronTrigger(vertx, config.getString("timeCheckNotifs")).schedule(
-						new NotifyMoodle(vertx, moodleClient, timelineHelper)
-				);
-			}
-		} catch (ParseException e) {
-			log.fatal("Invalid timeCheckNotifs cron expression.", e);
-		}
+        try {
+          for (Iterator<Map.Entry<String, Object>> it = moodleMultiClient.stream().iterator(); it.hasNext(); ) {
+            JsonObject moodleClient = (JsonObject) it.next().getValue();
+            new CronTrigger(vertx, config.getString("timeCheckNotifs")).schedule(
+              new NotifyMoodle(vertx, moodleClient, timelineHelper)
+            );
+          }
+        } catch (ParseException e) {
+          log.fatal("Invalid timeCheckNotifs cron expression.", e);
+        }
 
-		addController(moodleController);
-		addController(synchController);
-		addController(publishedController);
-		addController(courseController);
-		addController(duplicateController);
-		addController(folderController);
-		addController(shareController);
-
-		startPromise.tryComplete();
-		startPromise.tryFail("[Moodle@Moodle::start] Fail to start Moodle-connector");
+        addController(moodleController);
+        addController(synchController);
+        addController(publishedController);
+        addController(courseController);
+        addController(duplicateController);
+        addController(folderController);
+        addController(shareController);
+        return Future.succeededFuture();
+      });
 	}
 }
