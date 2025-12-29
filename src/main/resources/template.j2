@@ -1,0 +1,59 @@
+{
+  "name": "fr.openent~moodle-connector",
+  "config": {
+    "main" : "fr.openent.moodle.Moodle",
+    "port" : 8200,
+    "app-name" : "Moodle",
+    "app-address" : "/moodle",
+    "app-icon" : "moodle-logo",
+    "host": "https://{{ host }}",
+    "ssl" : true,
+    "auto-redeploy": false,
+    "userbook-host": "https://{{ host }}",
+    "integration-mode": "{{ integration_mode|default('HTTP') }}",
+    "app-registry.port" : 8012,
+    "mode" : "prod",
+    "entcore.port" : 8009,
+    "sql": true,
+    "db-schema": "moodle",
+    {% if inventory_hostname_short is defined and inventory_hostname_short == 'jobs' %}
+      "timeSecondSynchCron": "*/5 * * * * ? *",
+      "timeCheckNotifs": "*/30 * * * * ? *",
+    {% else %}
+      "timeSecondSynchCron": "*/5 * * * * ? 2099",
+      "timeCheckNotifs": "*/30 * * * * ? 2099",
+    {% endif %}
+    "numberOfMaxDuplicationTentatives": {{ moodleNumberOfMaxDuplicationTentatives | default('3') }},
+    "numberOfMaxPendingDuplication": {{ moodleNumberOfMaxPendingDuplication | default('1') }},
+    "timeDuplicationBeforeDelete": "{{ moodleTimeDuplicationBeforeDelete | default('10 minutes') }}",
+    "address_moodle": "{{ moodleServer }}",
+    {% if moodleHttpClientMaxPoolSize is defined %}
+      "http-client-max-pool-size" : {{ moodleHttpClientMaxPoolSize }},
+    {% endif %}
+    "ws-path": "{{ moodleWsPath }}",
+    "wsToken": "{{ moodleWstoken }}",
+    "idStudent": {{ moodleIdStudent }},
+    "idEditingTeacher": {{ moodleIdEditingTeacher }},
+    "deleteCategoryId": {{ moodleDeleteCategoryId }},
+    "idAuditeur": {{ moodleIdAuditeur }},
+    "header": "{{ moodleHeader }}",
+    "idGuest": {{ moodleIdGuest }},
+    "publicBankCategoryId": {{ moodlePublicBankCategoryId }},
+    "mainCategoryId": {{ moodleMainCategoryId }},
+    {% if moodleMultiClient is defined %}
+      "multiClient": {{ moodleMultiClient }},
+    {% endif %}
+    {% if moodleDefaultShare is defined %}
+      "share": {
+        "overrideDefaultActions": {{ moodleDefaultShare }}
+      },
+    {% endif %}
+    "userMail": "{{ moodleUserMail }}",
+    "selfEnrollmentCategoryId": {{ moodleSelfEnrollmentCategoryId | default('1') }}
+    {% if moodleTransfoLMSServer is defined %}
+      , "moodleTransfoLMSServer": {
+        "ip_adress": "{{ moodleTransfoLMSServer }}"
+      }
+    {% endif %}
+  }
+}
