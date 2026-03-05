@@ -137,11 +137,10 @@ public class Moodle extends BaseServer {
         moodleController.setCrudService(new SqlCrudService(moodleSchema, "course"));
         SynchController synchController = new SynchController(eb, vertx);
 
+		final SynchDuplicationMoodle synchDuplicationMoodle = new SynchDuplicationMoodle(vertx);
 
         try {
-          new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule(
-            new SynchDuplicationMoodle(vertx)
-          );
+          new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule();
         } catch (ParseException e) {
           log.fatal("Invalid timeSecondSynchCron cron expression.", e);
         }
