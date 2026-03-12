@@ -136,15 +136,17 @@ public class Moodle extends BaseServer {
         shareController.setShareService(new SqlShareService(moodleSchema, "course_shares", eb, securedActions, null));
         moodleController.setCrudService(new SqlCrudService(moodleSchema, "course"));
         SynchController synchController = new SynchController(eb, vertx);
-
+		// CRON
 		final SynchDuplicationMoodle synchDuplicationMoodle = new SynchDuplicationMoodle(vertx);
-
+		final NotifyMoodle defaultNotifyMoodle = new NotifyMoodle(vertx, monoClient, timelineHelper);
+		// Expose moodle tasks as API endpoints
+		addController(new TaskController(synchDuplicationMoodle, defaultNotifyMoodle));
+		// Schedule moodle tasks to run from cron expression
         try {
-          new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule();
+          new CronTrigger(vertx, config.getString("timeSecondSynchCron")).schedule(synchDuplicationMoodle);
         } catch (ParseException e) {
           log.fatal("Invalid timeSecondSynchCron cron expression.", e);
         }
-
         try {
           for (Iterator<Map.Entry<String, Object>> it = moodleMultiClient.stream().iterator(); it.hasNext(); ) {
             JsonObject moodleClient = (JsonObject) it.next().getValue();
