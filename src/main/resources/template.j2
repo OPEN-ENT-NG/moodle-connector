@@ -2,6 +2,11 @@
   "name": "fr.openent~moodle-connector",
   "config": {
     "main" : "fr.openent.moodle.Moodle",
+    "probes": [
+      "org.entcore.common.http.health.Neo4jProbe",
+      "org.entcore.common.http.health.MongoProbe",
+      "org.entcore.common.http.health.PostgresProbe"
+    ],
     "port" : 8200,
     "app-name" : "Moodle",
     "app-address" : "/moodle",
