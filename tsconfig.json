@@ -1,6 +1,8 @@
 ﻿{
   "compilerOptions": {
     "target": "es5",
+    "types": ["jquery"],
+    "skipLibCheck": true,
     "module": "commonjs",
     "allowSyntheticDefaultImports": true,
     "declaration": false,
