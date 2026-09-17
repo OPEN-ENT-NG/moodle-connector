@@ -1,5 +1,5 @@
 import {Shareable, notify} from "entcore";
-import http from 'axios';
+import {http} from 'entcore-toolkit';
 import {Author, Course} from "./Course";
 import {Labels} from "./Label";
 
