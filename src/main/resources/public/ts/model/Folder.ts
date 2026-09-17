@@ -1,5 +1,4 @@
-import http from "axios";
-import {Mix} from 'entcore-toolkit';
+import {Mix,http} from 'entcore-toolkit';
 import {notify} from "entcore";
 
 export interface Folder {

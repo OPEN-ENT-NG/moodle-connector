@@ -1,6 +1,5 @@
 import {_, idiom, moment, notify, Rights, Shareable} from "entcore";
-import http from "axios";
-import {Mix} from "entcore-toolkit";
+import {Mix,http} from "entcore-toolkit";
 import {Folders} from "./Folder";
 import {STATUS} from "../constantes";
 import {Label, Labels} from "./Label";

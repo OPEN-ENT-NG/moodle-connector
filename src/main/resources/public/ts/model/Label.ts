@@ -1,5 +1,4 @@
-import http from 'axios';
-import {Mix,Selectable,Selection} from 'entcore-toolkit';
+import {Mix,Selectable,Selection,http} from 'entcore-toolkit';
 
 export class Label implements Selectable {
     id : number;
