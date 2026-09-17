@@ -1769,10 +1769,10 @@ enhanced-resolve@~0.9.0:
   version "1.5.1"
   resolved "git+https://github.com/opendigitaleducation/generic-icons.git#960f4af943706812f9ebae81a39b7f521bb2fc3b"
 
-entcore-toolkit@2.0.0-dev.2:
-  version "2.0.0-dev.2"
-  resolved "https://registry.yarnpkg.com/entcore-toolkit/-/entcore-toolkit-2.0.0-dev.2.tgz#a49bccce50d69336b4aa5a539e20235f94e665b3"
-  integrity sha512-Y9WHiTDyOOlt3+fvLHCaaxC5yEk9lbqupsrJQCXorBj10roJNlL051JAXQjl8VZvE95Rz/qMjQe2ew3tKiJxRw==
+entcore-toolkit@2.0.0-dev.3:
+  version "2.0.0-dev.3"
+  resolved "https://registry.yarnpkg.com/entcore-toolkit/-/entcore-toolkit-2.0.0-dev.3.tgz#1e64ab8f231a04114b35ec9f1c5853cb36b6e1b7"
+  integrity sha512-l9kzMF8xfP5Z9qSLGEqoE2R8JNJZzZNQc2AFLCS+2IDhvmpPnN3XoTSPIPPQ98iFnS8pGQCfgm9P4jvl44j9+A==
 
 entcore-toolkit@^1.0.0:
   version "1.2.0"

@@ -34,7 +34,7 @@
     "webpack": "3.1.0",
     "webpack-stream": "3.2.0",
     "yargs": "^8.0.2",
-    "entcore-toolkit": "2.0.0-dev.2"
+    "entcore-toolkit": "2.0.0-dev.3"
   },
   "devDependencies": {
     "@types/jquery": "^2.0.34",
