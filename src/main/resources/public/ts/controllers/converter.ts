@@ -1,6 +1,6 @@
 import {ng, notify, idiom} from 'entcore';
 import {Utils} from "../utils/Utils";
-import http, {AxiosResponse} from "axios";
+import {http, HttpResponse} from "entcore-toolkit";
 
 interface ViewModel {
     files: File[];
@@ -35,7 +35,7 @@ export const converterController = ng.controller('ConverterController', ['$scope
                     let file = new FormData();
                     file.append("file", vm.files[i], vm.files[i].name);
                     await http.post("moodle/convert", file,{'headers' : { 'Content-Type': 'multipart/form-data' }})
-                        .then((resp: AxiosResponse) => {
+                        .then((resp: HttpResponse) => {
                             const data = resp.data;
                             const xml = data.xml;
                             const message = JSON.parse(data.message);
